@@ -60,9 +60,16 @@ install_rocq_linux_opam() {
     opam repo set-url --switch="$switch" "$REPO_NAME" "$REPO_URL" -y
   fi
 
-  # Force repo selection for THIS switch (avoid coq-local surprises)
-  # Keep only what we want for reproducibility.
-  opam repo set-repos --switch="$switch" "$REPO_NAME" default archive
+  # Force repo selection for THIS switch (avoid surprises).
+  # Note: the "archive" repo may not exist on some opam installs (e.g. opam 2.1 on ubuntu-latest).
+  local repos=("$REPO_NAME" "default")
+
+  if opam repo list --switch="$switch" --short | grep -qx "archive"; then
+    repos+=("archive")
+  fi
+
+  log "Setting opam repositories for switch $switch: ${repos[*]}"
+  opam repo set-repos --switch="$switch" "${repos[@]}"
 
   # Make rocq-released top priority (opam 2.5 syntax)
   opam repo priority --switch="$switch" "$REPO_NAME" 1
