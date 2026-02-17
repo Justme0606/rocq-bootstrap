@@ -47,12 +47,16 @@ main() {
     if [[ "$OS_NAME" == "macos" ]]; then
       find_vsrocqtop_macos || die "vsrocqtop not found (install Rocq Platform first or run without --test-only)"
     elif [[ "$OS_NAME" == "linux" ]]; then
-      VSROCQTOP_PATH="$(command -v vsrocqtop 2>/dev/null || true)"
-      [[ -n "${VSROCQTOP_PATH:-}" ]] || die "vsrocqtop not found in PATH (install first or run without --test-only)"
+      if [[ "${SKIP_VSCODE:-0}" -eq 1 ]]; then
+        log "SKIP_VSCODE=1: not requiring vsrocqtop in --test-only"
+      else
+        VSROCQTOP_PATH="$(command -v vsrocqtop 2>/dev/null || true)"
+        [[ -n "${VSROCQTOP_PATH:-}" ]] || die "vsrocqtop not found in PATH (install first or run without --test-only)"
+      fi
     else
       die "Unsupported OS for test-only: $OS_NAME"
     fi
-    log "vsrocqtop: $VSROCQTOP_PATH"
+    log "vsrocqtop: ${VSROCQTOP_PATH:-<none>}"
   else
     if [[ "$OS_NAME" == "macos" ]]; then
       install_rocq_macos
@@ -63,13 +67,21 @@ main() {
     fi
   fi
 
-  [[ -n "${VSROCQTOP_PATH:-}" ]] || die "VSROCQTOP_PATH is empty after installation"
+  # VSROCQTOP_PATH is only required if we configure VSCode
+  if [[ "${SKIP_VSCODE:-0}" -eq 0 ]]; then
+    [[ -n "${VSROCQTOP_PATH:-}" ]] || die "VSROCQTOP_PATH is empty after installation"
+  fi
 
   ensure_workspace
-  ensure_vscode_if_needed
-  ensure_vsrocq_extension
 
-  configure_vsrocq_settings
+  if [[ "${SKIP_VSCODE:-0}" -eq 0 ]]; then
+    ensure_vscode_if_needed
+    ensure_vsrocq_extension
+    configure_vsrocq_settings
+  else
+    log "SKIP_VSCODE=1: skipping VSCode setup"
+  fi
+
   run_cli_test
 
   summary_success
