@@ -15,10 +15,10 @@ environment for the Rocq Platform.
 
 This project aims to simplify deployment for:
 
--   Academic courses\
--   Research environments\
--   Workshops\
--   Student onboarding\
+-   Academic courses
+-   Research environments
+-   Workshops
+-   Student onboarding
 -   Controlled experimental setups
 
 It enforces strict version alignment and deterministic installation,
@@ -30,11 +30,11 @@ closely following Rocq Platform release conventions.
 
 The tool provides:
 
--   A reproducible Rocq installation\
--   Strict version pinning across the Rocq stack\
--   Official repository prioritisation\
--   Automated workspace generation\
--   VSCode integration\
+-   A reproducible Rocq installation
+-   Strict version pinning across the Rocq stack
+-   Official repository prioritisation
+-   Automated workspace generation
+-   VSCode integration
 -   CLI validation of the installed toolchain
 
 The design favours clarity, reproducibility and minimal manual
@@ -51,7 +51,7 @@ On Linux systems, Rocq is installed using `opam`.
 The installer:
 
 -   Creates a dedicated switch following Rocq Platform naming
-    conventions\
+    conventions
 
 -   Configures the official Rocq opam repository:
 
@@ -59,11 +59,11 @@ The installer:
 
 -   Installs a fully aligned Rocq stack:
 
-    -   `rocq-runtime=<version>`\
-    -   `rocq-core=<version>`\
-    -   `rocq-stdlib=<version>`\
-    -   `rocq-prover=<version>`\
-    -   `rocqide=<version>` (optional)\
+    -   `rocq-runtime=<version>`
+    -   `rocq-core=<version>`
+    -   `rocq-stdlib=<version>`
+    -   `rocq-prover=<version>`
+    -   `rocqide=<version>` (optional)
     -   `vsrocq-language-server`
 
 All core packages are strictly pinned to the requested Rocq version.
@@ -74,10 +74,10 @@ All core packages are strictly pinned to the requested Rocq version.
 
 On macOS systems, the installer:
 
--   Resolves the appropriate signed Rocq Platform release asset\
--   Downloads the official signed installer\
--   Installs the application bundle\
--   Locates `vsrocqtop`\
+-   Resolves the appropriate signed Rocq Platform release asset
+-   Downloads the official signed installer
+-   Installs the application bundle
+-   Locates `vsrocqtop`
 -   Configures a ready-to-use workspace
 
 Only signed release artifacts are accepted.
@@ -92,16 +92,16 @@ The installation process is driven by a manifest file:
 
 This file specifies:
 
--   Platform release identifier\
--   Rocq version\
--   Optional snapshot identifier\
--   macOS release assets\
+-   Platform release identifier
+-   Rocq version
+-   Optional snapshot identifier
+-   macOS release assets
 -   SHA256 checksums
 
 The manifest guarantees:
 
--   Version consistency\
--   Controlled dependency resolution\
+-   Version consistency
+-   Controlled dependency resolution
 -   Explicit release targeting
 
 ------------------------------------------------------------------------
@@ -110,15 +110,15 @@ The manifest guarantees:
 
 ### Linux
 
--   `opam ≥ 2.1`\
--   `jq`\
--   `curl`\
+-   `opam ≥ 2.1`
+-   `jq`
+-   `curl`
 -   VSCode (optional but recommended)
 
 ### macOS
 
--   `curl`\
--   `jq`\
+-   `curl`
+-   `jq`
 -   VSCode (optional but recommended)
 
 ------------------------------------------------------------------------
@@ -160,9 +160,9 @@ environment.
 
 This mode:
 
--   Resolves the manifest\
--   Prepares the workspace\
--   Runs validation tests\
+-   Resolves the manifest
+-   Prepares the workspace
+-   Runs validation tests
 -   Does not install Rocq
 
 ------------------------------------------------------------------------
@@ -179,8 +179,8 @@ The installer generates:
 
 The workspace is configured to:
 
--   Use the installed `vsrocqtop`\
--   Open directly in VSCode\
+-   Use the installed `vsrocqtop`
+-   Open directly in VSCode
 -   Compile a minimal validation file
 
 ------------------------------------------------------------------------
@@ -215,9 +215,9 @@ patterns.
 
 This tool is primarily intended for:
 
--   Research groups\
--   Teaching staff\
--   Graduate and undergraduate courses\
+-   Research groups
+-   Teaching staff
+-   Graduate and undergraduate courses
 -   Controlled Rocq environments requiring reproducibility
 
 ------------------------------------------------------------------------
