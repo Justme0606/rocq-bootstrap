@@ -1,0 +1,39 @@
+{
+  "channel": "stable",
+  "rocq_version": "9.0.0",
+  "platform_release": "2025.08.1",
+  "assets": {
+    "macos": {
+      "arm64": {
+        "type": "dmg",
+        "url": "https://example.org/releases/Rocq-Platform-2025.08.1-macos-arm64.dmg",
+        "sha256": ""
+      },
+      "x86_64": {
+        "type": "dmg",
+        "url": "https://example.org/releases/Rocq-Platform-2025.08.1-macos-x86_64.dmg",
+        "sha256": ""
+      }
+    },
+    "windows": {
+      "x86_64": {
+        "type": "exe",
+        "url": "https://example.org/releases/Rocq-Platform-2025.08.1-windows-x86_64.exe",
+        "sha256": ""
+      }
+    },
+    "linux": {
+      "x86_64": {
+        "type": "opam",
+        "opam": {
+          "ocaml_compiler": "ocaml-base-compiler.4.14.2",
+          "switch_prefix": "rocq",
+          "packages": {
+            "rocq-prover": "9.0.0",
+            "rocqide": "optional"
+          }
+        }
+      }
+    }
+  }
+}

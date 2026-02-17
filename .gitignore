@@ -1,0 +1,62 @@
+# Logs
+*.log
+logs/
+
+# Temporary files
+*~
+*.swp
+*.swo
+*.bak
+*.tmp
+.DS_Store
+Thumbs.db
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# Development and testing
+prompt
+CLAUDE.md
+test-workspace/
+.test/
+*.test
+
+# macOS
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# Backup files from text editors
+*~
+\#*\#
+.#*
+
+# opam artifacts (if testing locally)
+*.install
+*.opam.locked
+
+# Downloaded installers (if cached locally)
+downloads/
+*.dmg
+*.exe
+*.pkg
+*.deb
+*.rpm
+
+# SHA256 computation cache
+.sha256_cache/
