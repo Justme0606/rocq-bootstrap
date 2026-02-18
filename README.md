@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Status: In Development](https://img.shields.io/badge/status-in%20development-orange)
 
-> ⚠️ **Note**: This project is currently under active development. Features and APIs may change.
+> **Note**: This project is currently under active development. Features and APIs may change.
 
 ## Overview
 
