@@ -14,6 +14,39 @@ set -euo pipefail
 REPO_NAME="rocq-released"
 REPO_URL="https://rocq-prover.org/opam/released"
 
+ensure_opam_deps() {
+  local missing=()
+  for cmd in unzip bubblewrap make cc; do
+    local check="$cmd"
+    [[ "$cmd" == "bubblewrap" ]] && check="bwrap"
+    command -v "$check" >/dev/null 2>&1 || missing+=("$cmd")
+  done
+
+  [[ ${#missing[@]} -eq 0 ]] && return 0
+
+  log "Installing opam dependencies: ${missing[*]}"
+
+  local SUDO=""
+  if [[ "$(id -u)" -ne 0 ]]; then
+    command -v sudo >/dev/null 2>&1 || die "Cannot install opam dependencies (${missing[*]}): not root and sudo not available. Please install them manually."
+    SUDO="sudo"
+  fi
+
+  if command -v apt-get >/dev/null 2>&1; then
+    $SUDO apt-get update -qq && $SUDO apt-get install -y -qq "${missing[@]}"
+  elif command -v dnf >/dev/null 2>&1; then
+    $SUDO dnf install -y "${missing[@]}"
+  elif command -v yum >/dev/null 2>&1; then
+    $SUDO yum install -y "${missing[@]}"
+  elif command -v pacman >/dev/null 2>&1; then
+    $SUDO pacman -S --noconfirm "${missing[@]}"
+  elif command -v zypper >/dev/null 2>&1; then
+    $SUDO zypper install -y "${missing[@]}"
+  else
+    die "Cannot install opam dependencies (${missing[*]}): no supported package manager found. Please install them manually."
+  fi
+}
+
 ensure_opam() {
   if command -v opam >/dev/null 2>&1; then
     return 0
@@ -21,6 +54,8 @@ ensure_opam() {
 
   log "opam not found — installing via official installer..."
   need_cmd curl
+
+  ensure_opam_deps
 
   local tmp
   tmp="$(mktemp)"
