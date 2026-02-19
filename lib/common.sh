@@ -76,16 +76,22 @@ ensure_jq() {
 
   log "jq not found — attempting automatic installation..."
 
+  local SUDO=""
+  if [[ "$(id -u)" -ne 0 ]]; then
+    command -v sudo >/dev/null 2>&1 || die "jq is required but cannot install: not root and sudo not available. Please install jq manually: https://jqlang.github.io/jq/download/"
+    SUDO="sudo"
+  fi
+
   if command -v apt-get >/dev/null 2>&1; then
-    sudo apt-get update -qq && sudo apt-get install -y -qq jq
+    $SUDO apt-get update -qq && $SUDO apt-get install -y -qq jq
   elif command -v dnf >/dev/null 2>&1; then
-    sudo dnf install -y jq
+    $SUDO dnf install -y jq
   elif command -v yum >/dev/null 2>&1; then
-    sudo yum install -y jq
+    $SUDO yum install -y jq
   elif command -v pacman >/dev/null 2>&1; then
-    sudo pacman -S --noconfirm jq
+    $SUDO pacman -S --noconfirm jq
   elif command -v zypper >/dev/null 2>&1; then
-    sudo zypper install -y jq
+    $SUDO zypper install -y jq
   elif command -v brew >/dev/null 2>&1; then
     brew install jq
   else
