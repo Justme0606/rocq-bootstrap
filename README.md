@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Status: In Development](https://img.shields.io/badge/status-in%20development-orange)
 
-> ⚠️ **Note**: This project is currently under active development. Features and APIs may change.
+> **Note**: This project is currently under active development. Features and APIs may change.
 
 ## Overview
 
@@ -15,32 +15,32 @@ environment for the Rocq Platform.
 
 This project aims to simplify deployment for:
 
--   Academic courses
--   Research environments
--   Workshops
--   Student onboarding
--   Controlled experimental setups
+- Academic courses
+- Research environments
+- Workshops
+- Student onboarding
+- Controlled experimental setups
 
 It enforces strict version alignment and deterministic installation,
 closely following Rocq Platform release conventions.
 
-------------------------------------------------------------------------
+---
 
 ## Objectives
 
 The tool provides:
 
--   A reproducible Rocq installation
--   Strict version pinning across the Rocq stack
--   Official repository prioritisation
--   Automated workspace generation
--   VSCode integration
--   CLI validation of the installed toolchain
+- A reproducible Rocq installation
+- Strict version pinning across the Rocq stack
+- Official repository prioritisation
+- Automated workspace generation
+- VSCode integration
+- CLI validation of the installed toolchain
 
 The design favours clarity, reproducibility and minimal manual
 configuration.
 
-------------------------------------------------------------------------
+---
 
 ## Supported Platforms
 
@@ -50,39 +50,38 @@ On Linux systems, Rocq is installed using `opam`.
 
 The installer:
 
--   Creates a dedicated switch following Rocq Platform naming
-    conventions
+- Creates a dedicated switch following Rocq Platform naming
+  conventions
 
--   Configures the official Rocq opam repository:
+- Configures the official Rocq opam repository:
 
-        https://rocq-prover.org/opam/released
+      https://rocq-prover.org/opam/released
 
--   Installs a fully aligned Rocq stack:
-
-    -   `rocq-runtime=<version>`
-    -   `rocq-core=<version>`
-    -   `rocq-stdlib=<version>`
-    -   `rocq-prover=<version>`
-    -   `rocqide=<version>` (optional)
-    -   `vsrocq-language-server`
+- Installs a fully aligned Rocq stack:
+  - `rocq-runtime=<version>`
+  - `rocq-core=<version>`
+  - `rocq-stdlib=<version>`
+  - `rocq-prover=<version>`
+  - `rocqide=<version>` (optional)
+  - `vsrocq-language-server`
 
 All core packages are strictly pinned to the requested Rocq version.
 
-------------------------------------------------------------------------
+---
 
 ### macOS
 
 On macOS systems, the installer:
 
--   Resolves the appropriate signed Rocq Platform release asset
--   Downloads the official signed installer
--   Installs the application bundle
--   Locates `vsrocqtop`
--   Configures a ready-to-use workspace
+- Resolves the appropriate signed Rocq Platform release asset
+- Downloads the official signed installer
+- Installs the application bundle
+- Locates `vsrocqtop`
+- Configures a ready-to-use workspace
 
 Only signed release artifacts are accepted.
 
-------------------------------------------------------------------------
+---
 
 ## Reproducibility Model
 
@@ -92,80 +91,80 @@ The installation process is driven by a manifest file:
 
 This file specifies:
 
--   Platform release identifier
--   Rocq version
--   Optional snapshot identifier
--   macOS release assets
--   SHA256 checksums
+- Platform release identifier
+- Rocq version
+- Optional snapshot identifier
+- macOS release assets
+- SHA256 checksums
 
 The manifest guarantees:
 
--   Version consistency
--   Controlled dependency resolution
--   Explicit release targeting
+- Version consistency
+- Controlled dependency resolution
+- Explicit release targeting
 
-------------------------------------------------------------------------
+---
 
 ## Installation Requirements
 
 ### Linux
 
--   `opam ≥ 2.1`
--   `jq`
--   `curl`
--   VSCode (optional but recommended)
+- `opam ≥ 2.1`
+- `jq`
+- `curl`
+- VSCode (optional but recommended)
 
 ### macOS
 
--   `curl`
--   `jq`
--   VSCode (optional but recommended)
+- `curl`
+- `jq`
+- VSCode (optional but recommended)
 
-------------------------------------------------------------------------
+---
 
 ## Usage
 
 ### Standard installation
 
-``` bash
+```bash
 ./install.sh
 ```
 
-------------------------------------------------------------------------
+---
 
 ### Specify a workspace directory
 
-``` bash
+```bash
 ./install.sh --workspace /path/to/workspace
 ```
 
-------------------------------------------------------------------------
+---
 
 ### Recreate switch (Linux only)
 
-``` bash
+```bash
 ./install.sh --recreate-switch
 ```
 
 This removes and recreates the opam switch to ensure a clean
 environment.
 
-------------------------------------------------------------------------
+---
 
 ### Test-only mode
 
-``` bash
+```bash
 ./install.sh --test-only
 ```
 
 This mode:
 
--   Resolves the manifest
--   Prepares the workspace
--   Runs validation tests
--   Does not install Rocq
+- Resolves the manifest
+- Prepares the workspace
+- Runs validation tests
+- Does not install Rocq
 
-------------------------------------------------------------------------
+---
 
 ## Workspace Structure
 
@@ -179,11 +178,11 @@ The installer generates:
 
 The workspace is configured to:
 
--   Use the installed `vsrocqtop`
--   Open directly in VSCode
--   Compile a minimal validation file
+- Use the installed `vsrocqtop`
+- Open directly in VSCode
+- Compile a minimal validation file
 
-------------------------------------------------------------------------
+---
 
 ## Validation Procedure
 
@@ -193,7 +192,7 @@ Upon completion, the installer performs a CLI validation:
 
 Installation is considered successful only if compilation succeeds.
 
-------------------------------------------------------------------------
+---
 
 ## Switch Naming Convention (Linux)
 
@@ -209,18 +208,18 @@ Examples:
 This ensures traceability and compatibility with official release
 patterns.
 
-------------------------------------------------------------------------
+---
 
 ## Intended Audience
 
 This tool is primarily intended for:
 
--   Research groups
--   Teaching staff
--   Graduate and undergraduate courses
--   Controlled Rocq environments requiring reproducibility
+- Research groups
+- Teaching staff
+- Graduate and undergraduate courses
+- Controlled Rocq environments requiring reproducibility
 
-------------------------------------------------------------------------
+---
 
 ## License
 
