@@ -64,7 +64,7 @@ ensure_opam() {
   tmp="$(mktemp)"
   curl -fL --retry 3 --retry-delay 1 -o "$tmp" https://opam.ocaml.org/install.sh
   chmod +x "$tmp"
-  sh "$tmp" --no-backup >&2
+  echo /usr/local/bin | sh "$tmp" --no-backup >&2
   rm -f "$tmp"
 
   # The installer places opam in /usr/local/bin or ~/.opam/bin; verify it worked
