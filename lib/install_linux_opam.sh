@@ -36,15 +36,15 @@ ensure_opam_deps() {
   fi
 
   if command -v apt-get >/dev/null 2>&1; then
-    $SUDO apt-get update -qq && $SUDO apt-get install -y -qq "${missing_pkgs[@]}"
+    $SUDO apt-get update -qq >&2 && $SUDO apt-get install -y -qq "${missing_pkgs[@]}" >&2
   elif command -v dnf >/dev/null 2>&1; then
-    $SUDO dnf install -y "${missing_pkgs[@]}"
+    $SUDO dnf install -y "${missing_pkgs[@]}" >&2
   elif command -v yum >/dev/null 2>&1; then
-    $SUDO yum install -y "${missing_pkgs[@]}"
+    $SUDO yum install -y "${missing_pkgs[@]}" >&2
   elif command -v pacman >/dev/null 2>&1; then
-    $SUDO pacman -S --noconfirm "${missing_pkgs[@]}"
+    $SUDO pacman -S --noconfirm "${missing_pkgs[@]}" >&2
   elif command -v zypper >/dev/null 2>&1; then
-    $SUDO zypper install -y "${missing_pkgs[@]}"
+    $SUDO zypper install -y "${missing_pkgs[@]}" >&2
   else
     die "Cannot install opam dependencies (${missing_pkgs[*]}): no supported package manager found. Please install them manually."
   fi
@@ -64,7 +64,7 @@ ensure_opam() {
   tmp="$(mktemp)"
   curl -fL --retry 3 --retry-delay 1 -o "$tmp" https://opam.ocaml.org/install.sh
   chmod +x "$tmp"
-  sh "$tmp" --no-backup
+  sh "$tmp" --no-backup >&2
   rm -f "$tmp"
 
   # The installer places opam in /usr/local/bin or ~/.opam/bin; verify it worked
@@ -87,7 +87,7 @@ install_rocq_linux_opam() {
 
   if [[ ! -d "$HOME/.opam" ]]; then
     log "Initializing opam..."
-    opam init -y --bare
+    opam init -y --bare --disable-sandboxing
   fi
 
   # Switch name style Rocq Platform

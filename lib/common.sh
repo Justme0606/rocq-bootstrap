@@ -83,17 +83,17 @@ ensure_jq() {
   fi
 
   if command -v apt-get >/dev/null 2>&1; then
-    $SUDO apt-get update -qq && $SUDO apt-get install -y -qq jq
+    $SUDO apt-get update -qq && $SUDO apt-get install -y -qq jq >&2
   elif command -v dnf >/dev/null 2>&1; then
-    $SUDO dnf install -y jq
+    $SUDO dnf install -y jq >&2
   elif command -v yum >/dev/null 2>&1; then
-    $SUDO yum install -y jq
+    $SUDO yum install -y jq >&2
   elif command -v pacman >/dev/null 2>&1; then
-    $SUDO pacman -S --noconfirm jq
+    $SUDO pacman -S --noconfirm jq >&2
   elif command -v zypper >/dev/null 2>&1; then
-    $SUDO zypper install -y jq
+    $SUDO zypper install -y jq >&2
   elif command -v brew >/dev/null 2>&1; then
-    brew install jq
+    brew install jq >&2
   else
     die "jq is required but could not be installed automatically. Please install it manually: https://jqlang.github.io/jq/download/"
   fi
