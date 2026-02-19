@@ -16,7 +16,7 @@ REPO_URL="https://rocq-prover.org/opam/released"
 
 ensure_opam_deps() {
   # command -> package name mapping (command:package)
-  local deps="unzip:unzip bwrap:bubblewrap make:make cc:gcc"
+  local deps="unzip:unzip bwrap:bubblewrap make:make cc:gcc bzip2:bzip2"
   local missing_pkgs=()
 
   for entry in $deps; do
@@ -139,7 +139,7 @@ install_rocq_linux_opam() {
   opam update --switch="$switch"
 
   log "Installing Rocq stack pinned to $ROCQ_VERSION in switch $switch"
-  opam install --switch="$switch" -y \
+  opam install --switch="$switch" -y --depext-yes \
     "rocq-runtime=$ROCQ_VERSION" \
     "rocq-core=$ROCQ_VERSION" \
     "rocq-stdlib=$ROCQ_VERSION" \
@@ -150,13 +150,13 @@ install_rocq_linux_opam() {
     log "SKIP_VSCODE=1: not installing vsrocq-language-server (vsrocqtop not required)"
   else
     log "Installing vsrocq-language-server (provides vsrocqtop)"
-    opam install --switch="$switch" -y "vsrocq-language-server=2.3.4" || \
-      opam install --switch="$switch" -y vsrocq-language-server
+    opam install --switch="$switch" -y --depext-yes "vsrocq-language-server=2.3.4" || \
+      opam install --switch="$switch" -y --depext-yes vsrocq-language-server
   fi
 
   if [[ "${WITH_ROCQIDE:-no}" == "yes" ]]; then
     log "Installing rocqide"
-    opam install --switch="$switch" -y "rocqide=$ROCQ_VERSION"
+    opam install --switch="$switch" -y --depext-yes "rocqide=$ROCQ_VERSION"
   else
     log "Skipping rocqide (WITH_ROCQIDE=${WITH_ROCQIDE:-no})"
   fi
