@@ -14,8 +14,74 @@ set -euo pipefail
 REPO_NAME="rocq-released"
 REPO_URL="https://rocq-prover.org/opam/released"
 
+ensure_opam_deps() {
+  # command -> package name mapping (command:package)
+  local deps="unzip:unzip bwrap:bubblewrap make:make cc:gcc bzip2:bzip2"
+  local missing_pkgs=()
+
+  for entry in $deps; do
+    local cmd="${entry%%:*}"
+    local pkg="${entry##*:}"
+    command -v "$cmd" >/dev/null 2>&1 || missing_pkgs+=("$pkg")
+  done
+
+  [[ ${#missing_pkgs[@]} -eq 0 ]] && return 0
+
+  log "Installing opam dependencies: ${missing_pkgs[*]}"
+
+  local SUDO=""
+  if [[ "$(id -u)" -ne 0 ]]; then
+    command -v sudo >/dev/null 2>&1 || die "Cannot install opam dependencies (${missing_pkgs[*]}): not root and sudo not available. Please install them manually."
+    SUDO="sudo"
+  fi
+
+  if command -v apt-get >/dev/null 2>&1; then
+    $SUDO apt-get update -qq >&2 && $SUDO apt-get install -y -qq "${missing_pkgs[@]}" >&2
+  elif command -v dnf >/dev/null 2>&1; then
+    $SUDO dnf install -y "${missing_pkgs[@]}" >&2
+  elif command -v yum >/dev/null 2>&1; then
+    $SUDO yum install -y "${missing_pkgs[@]}" >&2
+  elif command -v pacman >/dev/null 2>&1; then
+    $SUDO pacman -S --noconfirm "${missing_pkgs[@]}" >&2
+  elif command -v zypper >/dev/null 2>&1; then
+    $SUDO zypper install -y "${missing_pkgs[@]}" >&2
+  else
+    die "Cannot install opam dependencies (${missing_pkgs[*]}): no supported package manager found. Please install them manually."
+  fi
+}
+
+ensure_opam() {
+  if command -v opam >/dev/null 2>&1; then
+    return 0
+  fi
+
+  log "opam not found — installing via official installer..."
+  need_cmd curl
+
+  ensure_opam_deps
+
+  local tmp
+  tmp="$(mktemp)"
+  curl -fL --retry 3 --retry-delay 1 -o "$tmp" https://opam.ocaml.org/install.sh
+  chmod +x "$tmp"
+  echo /usr/local/bin | sh "$tmp" --no-backup >&2
+  rm -f "$tmp"
+
+  # The installer places opam in /usr/local/bin or ~/.opam/bin; verify it worked
+  if ! command -v opam >/dev/null 2>&1; then
+    # Try common install location
+    export PATH="/usr/local/bin:$HOME/.opam/bin:$PATH"
+    command -v opam >/dev/null 2>&1 || die "opam installation failed — please install opam manually: https://opam.ocaml.org/doc/Install.html"
+  fi
+
+  log "opam installed successfully: $(command -v opam)"
+}
+
 install_rocq_linux_opam() {
-  need_cmd opam
+  ensure_opam
+
+  # Auto-confirm system dependency installation (replaces interactive prompts)
+  export OPAMCONFIRMLEVEL=unsafe-yes
 
   local opam_ver
   opam_ver="$(opam --version | tr -d '\r')"
@@ -24,7 +90,7 @@ install_rocq_linux_opam() {
 
   if [[ ! -d "$HOME/.opam" ]]; then
     log "Initializing opam..."
-    opam init -y --bare
+    opam init -y --bare --disable-sandboxing
   fi
 
   # Switch name style Rocq Platform

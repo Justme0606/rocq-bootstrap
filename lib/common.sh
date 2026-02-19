@@ -69,6 +69,39 @@ EOF
 
 need_cmd() { command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"; }
 
+ensure_jq() {
+  if command -v jq >/dev/null 2>&1; then
+    return 0
+  fi
+
+  log "jq not found — attempting automatic installation..."
+
+  local SUDO=""
+  if [[ "$(id -u)" -ne 0 ]]; then
+    command -v sudo >/dev/null 2>&1 || die "jq is required but cannot install: not root and sudo not available. Please install jq manually: https://jqlang.github.io/jq/download/"
+    SUDO="sudo"
+  fi
+
+  if command -v apt-get >/dev/null 2>&1; then
+    $SUDO apt-get update -qq && $SUDO apt-get install -y -qq jq >&2
+  elif command -v dnf >/dev/null 2>&1; then
+    $SUDO dnf install -y jq >&2
+  elif command -v yum >/dev/null 2>&1; then
+    $SUDO yum install -y jq >&2
+  elif command -v pacman >/dev/null 2>&1; then
+    $SUDO pacman -S --noconfirm jq >&2
+  elif command -v zypper >/dev/null 2>&1; then
+    $SUDO zypper install -y jq >&2
+  elif command -v brew >/dev/null 2>&1; then
+    brew install jq >&2
+  else
+    die "jq is required but could not be installed automatically. Please install it manually: https://jqlang.github.io/jq/download/"
+  fi
+
+  command -v jq >/dev/null 2>&1 || die "jq installation failed — please install it manually: https://jqlang.github.io/jq/download/"
+  log "jq installed successfully: $(command -v jq)"
+}
+
 download() {
   local url="$1" out="$2"
   need_cmd curl

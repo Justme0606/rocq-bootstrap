@@ -27,7 +27,12 @@ ensure_vscode_if_needed() {
     [[ -x "$fallback" ]] && CODE_BIN="$fallback"
   fi
 
-  [[ -n "$CODE_BIN" ]] || die "VSCode 'code' command not found. Install VSCode and enable 'code' in PATH."
+  if [[ -z "$CODE_BIN" ]]; then
+    log "WARNING: VSCode non détecté — la configuration de l'éditeur sera ignorée."
+    log "Pour utiliser Rocq avec VSCode, installez-le depuis https://code.visualstudio.com puis activez la commande 'code' dans le PATH."
+    SKIP_VSCODE=1
+    return 0
+  fi
 
   log "VSCode CLI: $CODE_BIN"
 }
