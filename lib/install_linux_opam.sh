@@ -15,35 +15,38 @@ REPO_NAME="rocq-released"
 REPO_URL="https://rocq-prover.org/opam/released"
 
 ensure_opam_deps() {
-  local missing=()
-  for cmd in unzip bubblewrap make cc; do
-    local check="$cmd"
-    [[ "$cmd" == "bubblewrap" ]] && check="bwrap"
-    command -v "$check" >/dev/null 2>&1 || missing+=("$cmd")
+  # command -> package name mapping (command:package)
+  local deps="unzip:unzip bwrap:bubblewrap make:make cc:gcc"
+  local missing_pkgs=()
+
+  for entry in $deps; do
+    local cmd="${entry%%:*}"
+    local pkg="${entry##*:}"
+    command -v "$cmd" >/dev/null 2>&1 || missing_pkgs+=("$pkg")
   done
 
-  [[ ${#missing[@]} -eq 0 ]] && return 0
+  [[ ${#missing_pkgs[@]} -eq 0 ]] && return 0
 
-  log "Installing opam dependencies: ${missing[*]}"
+  log "Installing opam dependencies: ${missing_pkgs[*]}"
 
   local SUDO=""
   if [[ "$(id -u)" -ne 0 ]]; then
-    command -v sudo >/dev/null 2>&1 || die "Cannot install opam dependencies (${missing[*]}): not root and sudo not available. Please install them manually."
+    command -v sudo >/dev/null 2>&1 || die "Cannot install opam dependencies (${missing_pkgs[*]}): not root and sudo not available. Please install them manually."
     SUDO="sudo"
   fi
 
   if command -v apt-get >/dev/null 2>&1; then
-    $SUDO apt-get update -qq && $SUDO apt-get install -y -qq "${missing[@]}"
+    $SUDO apt-get update -qq && $SUDO apt-get install -y -qq "${missing_pkgs[@]}"
   elif command -v dnf >/dev/null 2>&1; then
-    $SUDO dnf install -y "${missing[@]}"
+    $SUDO dnf install -y "${missing_pkgs[@]}"
   elif command -v yum >/dev/null 2>&1; then
-    $SUDO yum install -y "${missing[@]}"
+    $SUDO yum install -y "${missing_pkgs[@]}"
   elif command -v pacman >/dev/null 2>&1; then
-    $SUDO pacman -S --noconfirm "${missing[@]}"
+    $SUDO pacman -S --noconfirm "${missing_pkgs[@]}"
   elif command -v zypper >/dev/null 2>&1; then
-    $SUDO zypper install -y "${missing[@]}"
+    $SUDO zypper install -y "${missing_pkgs[@]}"
   else
-    die "Cannot install opam dependencies (${missing[*]}): no supported package manager found. Please install them manually."
+    die "Cannot install opam dependencies (${missing_pkgs[*]}): no supported package manager found. Please install them manually."
   fi
 }
 
