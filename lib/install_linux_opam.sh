@@ -14,8 +14,33 @@ set -euo pipefail
 REPO_NAME="rocq-released"
 REPO_URL="https://rocq-prover.org/opam/released"
 
+ensure_opam() {
+  if command -v opam >/dev/null 2>&1; then
+    return 0
+  fi
+
+  log "opam not found — installing via official installer..."
+  need_cmd curl
+
+  local tmp
+  tmp="$(mktemp)"
+  curl -fL --retry 3 --retry-delay 1 -o "$tmp" https://opam.ocaml.org/install.sh
+  chmod +x "$tmp"
+  sh "$tmp" --no-backup
+  rm -f "$tmp"
+
+  # The installer places opam in /usr/local/bin or ~/.opam/bin; verify it worked
+  if ! command -v opam >/dev/null 2>&1; then
+    # Try common install location
+    export PATH="/usr/local/bin:$HOME/.opam/bin:$PATH"
+    command -v opam >/dev/null 2>&1 || die "opam installation failed — please install opam manually: https://opam.ocaml.org/doc/Install.html"
+  fi
+
+  log "opam installed successfully: $(command -v opam)"
+}
+
 install_rocq_linux_opam() {
-  need_cmd opam
+  ensure_opam
 
   local opam_ver
   opam_ver="$(opam --version | tr -d '\r')"

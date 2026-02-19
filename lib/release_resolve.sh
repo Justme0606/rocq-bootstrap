@@ -21,7 +21,7 @@ OPAM_REPO=""
 
 json_get() {
   local expr="$1" file="$2"
-  command -v jq >/dev/null 2>&1 || die "jq is required (install: brew install jq / sudo apt install jq)"
+  ensure_jq
   jq -r "$expr" "$file"
 }
 

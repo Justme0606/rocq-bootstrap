@@ -69,6 +69,33 @@ EOF
 
 need_cmd() { command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"; }
 
+ensure_jq() {
+  if command -v jq >/dev/null 2>&1; then
+    return 0
+  fi
+
+  log "jq not found — attempting automatic installation..."
+
+  if command -v apt-get >/dev/null 2>&1; then
+    sudo apt-get update -qq && sudo apt-get install -y -qq jq
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf install -y jq
+  elif command -v yum >/dev/null 2>&1; then
+    sudo yum install -y jq
+  elif command -v pacman >/dev/null 2>&1; then
+    sudo pacman -S --noconfirm jq
+  elif command -v zypper >/dev/null 2>&1; then
+    sudo zypper install -y jq
+  elif command -v brew >/dev/null 2>&1; then
+    brew install jq
+  else
+    die "jq is required but could not be installed automatically. Please install it manually: https://jqlang.github.io/jq/download/"
+  fi
+
+  command -v jq >/dev/null 2>&1 || die "jq installation failed — please install it manually: https://jqlang.github.io/jq/download/"
+  log "jq installed successfully: $(command -v jq)"
+}
+
 download() {
   local url="$1" out="$2"
   need_cmd curl
