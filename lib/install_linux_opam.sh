@@ -80,6 +80,9 @@ ensure_opam() {
 install_rocq_linux_opam() {
   ensure_opam
 
+  # Auto-confirm system dependency installation (replaces interactive prompts)
+  export OPAMCONFIRMLEVEL=unsafe-yes
+
   local opam_ver
   opam_ver="$(opam --version | tr -d '\r')"
   log "opam version: $opam_ver"
@@ -139,7 +142,7 @@ install_rocq_linux_opam() {
   opam update --switch="$switch"
 
   log "Installing Rocq stack pinned to $ROCQ_VERSION in switch $switch"
-  opam install --switch="$switch" -y --depext-yes \
+  opam install --switch="$switch" -y \
     "rocq-runtime=$ROCQ_VERSION" \
     "rocq-core=$ROCQ_VERSION" \
     "rocq-stdlib=$ROCQ_VERSION" \
@@ -150,13 +153,13 @@ install_rocq_linux_opam() {
     log "SKIP_VSCODE=1: not installing vsrocq-language-server (vsrocqtop not required)"
   else
     log "Installing vsrocq-language-server (provides vsrocqtop)"
-    opam install --switch="$switch" -y --depext-yes "vsrocq-language-server=2.3.4" || \
-      opam install --switch="$switch" -y --depext-yes vsrocq-language-server
+    opam install --switch="$switch" -y "vsrocq-language-server=2.3.4" || \
+      opam install --switch="$switch" -y vsrocq-language-server
   fi
 
   if [[ "${WITH_ROCQIDE:-no}" == "yes" ]]; then
     log "Installing rocqide"
-    opam install --switch="$switch" -y --depext-yes "rocqide=$ROCQ_VERSION"
+    opam install --switch="$switch" -y "rocqide=$ROCQ_VERSION"
   else
     log "Skipping rocqide (WITH_ROCQIDE=${WITH_ROCQIDE:-no})"
   fi
