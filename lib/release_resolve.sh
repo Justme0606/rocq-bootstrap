@@ -17,7 +17,11 @@ ASSET_SHA256=""
 ASSET_TYPE=""
 PLATFORM_RELEASE=""
 OPAM_SNAPSHOT=""
-OPAM_REPO=""
+OPAM_COMPILER=""
+OPAM_SWITCH_PREFIX=""
+OPAM_REPO_NAME=""
+OPAM_REPO_URL=""
+OPAM_PACKAGES_JSON=""
 
 json_get() {
   local expr="$1" file="$2"
@@ -50,7 +54,6 @@ resolve_release() {
   # Read manifest metadata (globals for other modules)
   PLATFORM_RELEASE="$(json_get '.platform_release' "$manifest_file")"
   OPAM_SNAPSHOT="$(json_get '.opam_snapshot // ""' "$manifest_file")"
-  OPAM_REPO="$(json_get '.opam_repo // "https://coq.inria.fr/opam/released"' "$manifest_file")"
 
   # Rocq version: from manifest unless overridden by --rocq-version
   ROCQ_VERSION="$(json_get '.rocq_version' "$manifest_file")"
@@ -65,6 +68,19 @@ resolve_release() {
     ASSET_TYPE="opam"
     ASSET_URL=""
     ASSET_SHA256=""
+
+    local opam_base=".assets.linux.${ARCH}.opam"
+    OPAM_COMPILER="$(json_get "${opam_base}.ocaml_compiler" "$manifest_file")"
+    OPAM_SWITCH_PREFIX="$(json_get "${opam_base}.switch_prefix" "$manifest_file")"
+    OPAM_REPO_NAME="$(json_get "${opam_base}.repo_name" "$manifest_file")"
+    OPAM_REPO_URL="$(json_get "${opam_base}.repo_url" "$manifest_file")"
+    OPAM_PACKAGES_JSON="$(json_get "${opam_base}.packages" "$manifest_file")"
+
+    [[ -n "$OPAM_COMPILER" && "$OPAM_COMPILER" != "null" ]] || die "No ocaml_compiler in manifest for linux/${ARCH}"
+    [[ -n "$OPAM_REPO_URL" && "$OPAM_REPO_URL" != "null" ]] || die "No repo_url in manifest for linux/${ARCH}"
+    [[ -n "$OPAM_PACKAGES_JSON" && "$OPAM_PACKAGES_JSON" != "null" ]] || die "No packages in manifest for linux/${ARCH}"
+
+    log "Opam config: compiler=$OPAM_COMPILER repo=$OPAM_REPO_NAME($OPAM_REPO_URL) switch_prefix=$OPAM_SWITCH_PREFIX"
     return 0
   fi
 

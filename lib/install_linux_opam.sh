@@ -11,9 +11,6 @@
 
 set -euo pipefail
 
-REPO_NAME="rocq-released"
-REPO_URL="https://rocq-prover.org/opam/released"
-
 ensure_opam_deps() {
   # command -> package name mapping (command:package)
   local deps="unzip:unzip bwrap:bubblewrap make:make cc:gcc bzip2:bzip2"
@@ -95,7 +92,8 @@ install_rocq_linux_opam() {
 
   # Switch name style Rocq Platform
   local rocq_mm="${ROCQ_VERSION%.*}"  # 9.0 from 9.0.0
-  local switch="CP.${PLATFORM_RELEASE}~${rocq_mm}"
+  local prefix="${OPAM_SWITCH_PREFIX:-CP}"
+  local switch="${prefix}.${PLATFORM_RELEASE}~${rocq_mm}"
   if [[ -n "${OPAM_SNAPSHOT:-}" ]]; then
     switch="${switch}~${OPAM_SNAPSHOT}"
   fi
@@ -115,20 +113,23 @@ install_rocq_linux_opam() {
 
   # Create switch if missing
   if ! opam switch list --short | grep -qx "$switch"; then
-    log "Creating opam switch: $switch (ocaml 4.14.2)"
-    opam switch create "$switch" ocaml-base-compiler.4.14.2 -y
+    log "Creating opam switch: $switch ($OPAM_COMPILER)"
+    opam switch create "$switch" "$OPAM_COMPILER" -y
   fi
 
-  # Ensure rocq-released repo is present and correctly configured IN THIS SWITCH
-  log "Ensuring opam repo $REPO_NAME -> $REPO_URL (switch=$switch)"
-  if ! opam repo add --switch="$switch" "$REPO_NAME" "$REPO_URL" -y; then
-    log "$REPO_NAME already exists; forcing set-url to $REPO_URL"
-    opam repo set-url --switch="$switch" "$REPO_NAME" "$REPO_URL" -y
+  local repo_name="${OPAM_REPO_NAME:-rocq-released}"
+  local repo_url="${OPAM_REPO_URL:-https://rocq-prover.org/opam/released}"
+
+  # Ensure opam repo is present and correctly configured IN THIS SWITCH
+  log "Ensuring opam repo $repo_name -> $repo_url (switch=$switch)"
+  if ! opam repo add --switch="$switch" "$repo_name" "$repo_url" -y; then
+    log "$repo_name already exists; forcing set-url to $repo_url"
+    opam repo set-url --switch="$switch" "$repo_name" "$repo_url" -y
   fi
 
   # Force repo selection for THIS switch (avoid surprises).
   # Note: the "archive" repo may not exist on some opam installs (e.g. opam 2.1 on ubuntu-latest).
-  local repos=("$REPO_NAME" "default")
+  local repos=("$repo_name" "default")
 
   if opam repo list --switch="$switch" --short | grep -qx "archive"; then
     repos+=("archive")
@@ -137,32 +138,39 @@ install_rocq_linux_opam() {
   log "Setting opam repositories for switch $switch: ${repos[*]}"
   opam repo set-repos --switch="$switch" "${repos[@]}"
 
-  # Make rocq-released top priority (opam 2.5 syntax)
-  opam repo priority --switch="$switch" "$REPO_NAME" 1
+  # Make repo top priority (opam 2.5 syntax)
+  opam repo priority --switch="$switch" "$repo_name" 1
   opam update --switch="$switch"
 
-  log "Installing Rocq stack pinned to $ROCQ_VERSION in switch $switch"
-  opam install --switch="$switch" -y \
-    "rocq-runtime=$ROCQ_VERSION" \
-    "rocq-core=$ROCQ_VERSION" \
-    "rocq-stdlib=$ROCQ_VERSION" \
-    "rocq-prover=$ROCQ_VERSION"
+  # Build package list from manifest
+  local required_pkgs=()
+  local count
+  count="$(echo "$OPAM_PACKAGES_JSON" | jq 'length')"
 
-  # Install vsrocq language server (provides vsrocqtop) unless VSCode is skipped
-  if [[ "${SKIP_VSCODE:-0}" -eq 1 ]]; then
-    log "SKIP_VSCODE=1: not installing vsrocq-language-server (vsrocqtop not required)"
-  else
-    log "Installing vsrocq-language-server (provides vsrocqtop)"
-    opam install --switch="$switch" -y "vsrocq-language-server=2.3.4" || \
-      opam install --switch="$switch" -y vsrocq-language-server
-  fi
+  for (( i=0; i<count; i++ )); do
+    local pkg_name pkg_version pkg_optional
+    pkg_name="$(echo "$OPAM_PACKAGES_JSON" | jq -r ".[$i].name")"
+    pkg_version="$(echo "$OPAM_PACKAGES_JSON" | jq -r ".[$i].version")"
+    pkg_optional="$(echo "$OPAM_PACKAGES_JSON" | jq -r ".[$i].optional // empty")"
 
-  if [[ "${WITH_ROCQIDE:-no}" == "yes" ]]; then
-    log "Installing rocqide"
-    opam install --switch="$switch" -y "rocqide=$ROCQ_VERSION"
-  else
-    log "Skipping rocqide (WITH_ROCQIDE=${WITH_ROCQIDE:-no})"
-  fi
+    # Handle optional packages based on flags
+    if [[ "$pkg_optional" == "skip_vscode" ]]; then
+      if [[ "${SKIP_VSCODE:-0}" -eq 1 ]]; then
+        log "Skipping $pkg_name (SKIP_VSCODE=1)"
+        continue
+      fi
+    elif [[ "$pkg_optional" == "with_rocqide" ]]; then
+      if [[ "${WITH_ROCQIDE:-no}" != "yes" ]]; then
+        log "Skipping $pkg_name (WITH_ROCQIDE=${WITH_ROCQIDE:-no})"
+        continue
+      fi
+    fi
+
+    required_pkgs+=("${pkg_name}=${pkg_version}")
+  done
+
+  log "Installing Rocq packages in switch $switch: ${required_pkgs[*]}"
+  opam install --switch="$switch" -y "${required_pkgs[@]}"
 
   local bin
   bin="$(opam var --switch="$switch" bin)"

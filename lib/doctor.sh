@@ -94,7 +94,8 @@ doctor_linux_opam() {
   ok "opam version: $opam_ver"
 
   local rocq_mm="${ROCQ_VERSION%.*}"
-  local sw="CP.${PLATFORM_RELEASE}~${rocq_mm}"
+  local prefix="${OPAM_SWITCH_PREFIX:-CP}"
+  local sw="${prefix}.${PLATFORM_RELEASE}~${rocq_mm}"
   if [[ -n "${OPAM_SNAPSHOT:-}" ]]; then
     sw="${sw}~${OPAM_SNAPSHOT}"
   fi

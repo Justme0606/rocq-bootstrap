@@ -1,6 +1,6 @@
 {
   "channel": "stable",
-  "rocq_version": "9.0.0",
+  "rocq_version": "9.0.1",
   "platform_release": "2025.08.1",
   "assets": {
     "macos": {
@@ -27,11 +27,25 @@
         "type": "opam",
         "opam": {
           "ocaml_compiler": "ocaml-base-compiler.4.14.2",
-          "switch_prefix": "rocq",
-          "packages": {
-            "rocq-prover": "9.0.0",
-            "rocqide": "optional"
-          }
+          "switch_prefix": "CP",
+          "repo_name": "rocq-released",
+          "repo_url": "https://rocq-prover.org/opam/released",
+          "packages": [
+            { "name": "rocq-runtime", "version": "9.0.1" },
+            { "name": "rocq-core", "version": "9.0.1" },
+            { "name": "rocq-stdlib", "version": "9.0.0" },
+            { "name": "rocq-prover", "version": "9.0.0" },
+            {
+              "name": "vsrocq-language-server",
+              "version": "2.3.4",
+              "optional": "skip_vscode"
+            },
+            {
+              "name": "rocqide",
+              "version": "9.0.0",
+              "optional": "with_rocqide"
+            }
+          ]
         }
       }
     }

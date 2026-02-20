@@ -181,7 +181,23 @@ manifest="$(jq -n \
       macos: {},
       windows: {},
       linux: {
-        x86_64: { type: "opam", opam: { ocaml_compiler: "ocaml-base-compiler.4.14.2" } }
+        x86_64: {
+          type: "opam",
+          opam: {
+            ocaml_compiler: "ocaml-base-compiler.4.14.2",
+            switch_prefix: "CP",
+            repo_name: "rocq-released",
+            repo_url: "https://rocq-prover.org/opam/released",
+            packages: [
+              { name: "rocq-runtime",           version: $rocq_version },
+              { name: "rocq-core",              version: $rocq_version },
+              { name: "rocq-stdlib",            version: $rocq_version },
+              { name: "rocq-prover",            version: $rocq_version },
+              { name: "vsrocq-language-server", version: "2.3.4", optional: "skip_vscode" },
+              { name: "rocqide",                version: $rocq_version, optional: "with_rocqide" }
+            ]
+          }
+        }
       }
     }
   }'
