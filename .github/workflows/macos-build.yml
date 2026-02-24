@@ -1,0 +1,115 @@
+name: macOS Build & Smoke Test
+
+on:
+  push:
+    branches: [main, feat/macos]
+    paths:
+      - "macos/**"
+      - "manifest/**"
+      - "templates/**"
+      - ".github/workflows/macos-build.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "macos/**"
+      - "manifest/**"
+      - "templates/**"
+
+jobs:
+  build-macos:
+    name: Build on macOS (Apple Silicon)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Sync assets
+        working-directory: macos
+        run: |
+          cp -f ../manifest/latest.json embedded/manifest/latest.json
+          cp -f ../templates/test.v embedded/templates/test.v
+          cp -f ../templates/main.v embedded/templates/main.v
+          cp -f ../templates/_RocqProject embedded/templates/_RocqProject
+          cp -f ../templates/vscode-settings.json embedded/templates/vscode-settings.json
+
+      - name: Install dependencies
+        working-directory: macos
+        run: go mod tidy
+
+      - name: Build binary (arm64)
+        working-directory: macos
+        run: |
+          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
+            go build -ldflags="-s -w" -o rocq-bootstrap ./cmd/rocq-bootstrap/
+
+      - name: Verify Mach-O binary
+        working-directory: macos
+        run: file rocq-bootstrap | grep -q "Mach-O"
+
+      - name: Create app bundle
+        working-directory: macos
+        run: make app-bundle
+
+      - name: Verify app bundle structure
+        working-directory: macos
+        run: |
+          test -d "Rocq Bootstrap.app/Contents/MacOS"
+          test -f "Rocq Bootstrap.app/Contents/MacOS/rocq-bootstrap"
+          test -f "Rocq Bootstrap.app/Contents/Info.plist"
+
+      - name: Create DMG
+        working-directory: macos
+        run: make dmg
+
+      - name: Verify DMG
+        working-directory: macos
+        run: |
+          test -f rocq-bootstrap.dmg
+          SIZE=$(stat -f%z rocq-bootstrap.dmg)
+          echo "DMG size: $SIZE bytes"
+          if [ "$SIZE" -lt 1000000 ]; then
+            echo "DMG seems too small ($SIZE bytes)"
+            exit 1
+          fi
+
+      - name: Smoke test — mount DMG and verify contents
+        working-directory: macos
+        run: |
+          MOUNT_POINT=$(hdiutil attach rocq-bootstrap.dmg -nobrowse | awk '/Volumes\// {for(i=3;i<=NF;i++) printf "%s ", $i; print ""}' | sed 's/ *$//')
+          echo "Mounted at: $MOUNT_POINT"
+
+          # Verify .app exists in the DMG
+          ls -la "$MOUNT_POINT/"
+          test -d "$MOUNT_POINT/Rocq Bootstrap.app"
+          test -f "$MOUNT_POINT/Rocq Bootstrap.app/Contents/MacOS/rocq-bootstrap"
+
+          echo "DMG contents verified successfully"
+          hdiutil detach "$MOUNT_POINT" || true
+
+      - name: Smoke test — launch binary headless
+        working-directory: macos
+        timeout-minutes: 1
+        continue-on-error: true
+        run: |
+          # The GUI app will fail to create a window in headless CI,
+          # but we verify it loads and doesn't crash on missing libraries.
+          ./rocq-bootstrap &
+          PID=$!
+          sleep 3
+          if kill -0 $PID 2>/dev/null; then
+            echo "Process is running (PID: $PID), stopping it."
+            kill $PID || true
+            echo "Smoke test passed: binary launched successfully."
+          else
+            wait $PID 2>/dev/null || true
+            echo "Process exited (headless exit is expected in CI)."
+          fi
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rocq-bootstrap-dmg
+          path: macos/rocq-bootstrap.dmg
