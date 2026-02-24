@@ -53,10 +53,13 @@ $RECYCLE.BIN/
 # Downloaded installers (if cached locally)
 downloads/
 *.dmg
-*.exe
 *.pkg
 *.deb
 *.rpm
+
+# Windows build artifacts
+windows/*.exe
+windows/cmd/rocq-bootstrap/*.syso
 
 # SHA256 computation cache
 .sha256_cache/
