@@ -83,6 +83,35 @@ Only signed release artifacts are accepted.
 
 ---
 
+### Windows
+
+On Windows, a standalone GUI installer (`rocq-bootstrap.exe`) handles
+the entire setup:
+
+- Downloads the official signed Rocq Platform InnoSetup installer
+- Verifies SHA256 checksum
+- Runs the InnoSetup installer silently
+- Locates `vsrocqtop` in the installation directory
+- Installs the VSRocq extension in VSCode
+- Creates a ready-to-use workspace in `%USERPROFILE%\rocq-workspace`
+- Configures VSCode settings and opens the workspace
+
+The installer is a Go application with an embedded GUI (Fyne) that
+displays real-time progress. It embeds the manifest and workspace
+templates at build time.
+
+**Default installation directory:**
+
+    C:\Rocq-platform~<rocq_major.minor>~<platform_year.month>
+
+Example: `C:\Rocq-platform~9.0~2025.08`
+
+The installer automatically detects existing installations (via
+filesystem checks, Windows registry, and PATH lookup) and skips
+the download/install steps when an existing installation is found.
+
+---
+
 ## Reproducibility Model
 
 The installation process is driven by a manifest file:
@@ -94,7 +123,7 @@ This file specifies:
 - Platform release identifier
 - Rocq version
 - Optional snapshot identifier
-- macOS release assets
+- macOS and Windows release assets
 - SHA256 checksums
 
 The manifest guarantees:
@@ -119,6 +148,15 @@ The manifest guarantees:
 - `curl`
 - `jq`
 - VSCode (optional but recommended)
+
+### Windows
+
+No prerequisites for end users — just run `rocq-bootstrap.exe`.
+
+For building from source (cross-compilation from Linux):
+
+- `go >= 1.22`
+- `gcc-mingw-w64-x86-64`
 
 ---
 
@@ -148,6 +186,23 @@ The manifest guarantees:
 
 This removes and recreates the opam switch to ensure a clean
 environment.
+
+---
+
+### Windows
+
+Simply run the GUI installer:
+
+    rocq-bootstrap.exe
+
+To build from source (cross-compile from Linux):
+
+```bash
+cd windows
+make all       # production build (no console window)
+make debug     # debug build (shows console for error output)
+make clean     # remove build artifacts
+```
 
 ---
 
