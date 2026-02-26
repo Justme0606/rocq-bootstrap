@@ -27,7 +27,7 @@ jobs:
 
       - name: Build rocq-bootstrap.exe
         working-directory: windows
-        run: make all
+        run: make all VERSION=${{ inputs.tag }}
 
       - name: Verify PE32+ executable
         working-directory: windows

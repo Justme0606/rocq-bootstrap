@@ -55,7 +55,7 @@ func (lp *logPanel) append(msg string) {
 }
 
 // Run creates and runs the GUI application.
-func Run(m *manifest.Manifest, templates fs.FS, icon []byte) {
+func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 	a := app.New()
 	a.Settings().SetTheme(newRocqTheme())
 
@@ -87,10 +87,11 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte) {
 
 	titleRow := container.NewHBox(titleRocq, titleRest)
 
-	versionLabel := canvas.NewText(
-		fmt.Sprintf("Rocq %s  —  Release %s", m.RocqVersion, m.PlatformRelease),
-		rocqMutedText,
-	)
+	versionText := fmt.Sprintf("Rocq %s  —  Release %s", m.RocqVersion, m.PlatformRelease)
+	if version != "" && version != "dev" {
+		versionText += "  —  " + version
+	}
+	versionLabel := canvas.NewText(versionText, rocqMutedText)
 	versionLabel.TextSize = 13
 
 	titleBlock := container.NewVBox(titleRow, versionLabel)
