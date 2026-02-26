@@ -17,6 +17,7 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
+	"github.com/justme0606/rocq-bootstrap/macos/internal/doctor"
 	"github.com/justme0606/rocq-bootstrap/macos/internal/installer"
 	"github.com/justme0606/rocq-bootstrap/macos/internal/manifest"
 )
@@ -65,7 +66,11 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 		a.SetIcon(iconRes)
 	}
 
-	w := a.NewWindow("Rocq Platform Installer")
+	windowTitle := "Rocq Platform Installer"
+	if version != "" && version != "dev" {
+		windowTitle += " - " + version
+	}
+	w := a.NewWindow(windowTitle)
 	w.Resize(fyne.NewSize(windowWidth, windowHeight))
 	w.SetFixedSize(true)
 
@@ -172,7 +177,44 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 	})
 	installBtn.Importance = widget.HighImportance
 
-	bottomBar := container.NewPadded(container.NewCenter(installBtn))
+	// --- Doctor button ---
+	var doctorBtn *widget.Button
+	doctorBtn = widget.NewButtonWithIcon("Doctor", theme.InfoIcon(), func() {
+		installBtn.Disable()
+		doctorBtn.Disable()
+
+		go func() {
+			var lines []string
+			doctor.Run(func(msg string) {
+				lines = append(lines, msg)
+			})
+
+			richText := widget.NewRichText()
+			richText.Wrapping = fyne.TextWrapWord
+			richText.ParseMarkdown("```\n" + strings.Join(lines, "\n") + "\n```")
+
+			scroll := container.NewScroll(richText)
+			scroll.SetMinSize(fyne.NewSize(560, 350))
+
+			closeBtn := widget.NewButton("Close", nil)
+			closeBtn.Importance = widget.HighImportance
+
+			content := container.NewBorder(nil, container.NewCenter(closeBtn), nil, nil, scroll)
+			d := dialog.NewCustomWithoutButtons("Doctor \u2014 System Diagnostic", content, w)
+
+			closeBtn.OnTapped = func() {
+				d.Hide()
+			}
+
+			d.Show()
+
+			installBtn.Enable()
+			doctorBtn.Enable()
+		}()
+	})
+	doctorBtn.Importance = widget.HighImportance
+
+	bottomBar := container.NewPadded(container.NewCenter(container.NewHBox(doctorBtn, installBtn)))
 
 	// --- Main layout ---
 	content := container.NewPadded(
