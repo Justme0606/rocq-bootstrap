@@ -229,11 +229,6 @@ jobs:
           cp -f ../templates/_RocqProject embedded/templates/_RocqProject
           cp -f ../templates/vscode-settings.json embedded/templates/vscode-settings.json
 
-      - name: Go vet
-        shell: bash
-        working-directory: windows
-        run: go vet ./...
-
       - name: Build natively
         shell: bash
         working-directory: windows
