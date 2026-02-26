@@ -12,8 +12,63 @@ permissions:
   contents: write
 
 jobs:
-  build-windows:
-    name: Build Windows executable
+  # ──────────────────────────────────────────────
+  # Linux
+  # ──────────────────────────────────────────────
+
+  linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install Fyne system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl-dev libxxf86vm-dev libxi-dev \
+            libxcursor-dev libxrandr-dev libxinerama-dev
+
+      - name: Go vet
+        working-directory: linux
+        run: go vet ./...
+
+      - name: Build
+        working-directory: linux
+        run: make all VERSION=${{ inputs.tag }}
+
+      - name: Verify ELF binary
+        working-directory: linux
+        run: file rocq-bootstrap | grep -q "ELF 64-bit LSB"
+
+      - name: Test --help
+        working-directory: linux
+        run: ./rocq-bootstrap --help | grep -q "\-\-install"
+
+      - name: Test --install / --uninstall
+        working-directory: linux
+        run: |
+          ./rocq-bootstrap --install
+          test -f "$HOME/.local/bin/rocq-bootstrap"
+          test -f "$HOME/.local/share/applications/rocq-bootstrap.desktop"
+          ./rocq-bootstrap --uninstall
+          test ! -f "$HOME/.local/bin/rocq-bootstrap"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rocq-bootstrap-linux
+          path: linux/rocq-bootstrap
+
+  # ──────────────────────────────────────────────
+  # Windows
+  # ──────────────────────────────────────────────
+
+  windows:
+    name: Build Windows
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,7 +80,11 @@ jobs:
       - name: Install mingw-w64
         run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64
 
-      - name: Build rocq-bootstrap.exe
+      - name: Go vet
+        working-directory: windows
+        run: CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc GOOS=windows GOARCH=amd64 go vet ./...
+
+      - name: Build
         working-directory: windows
         run: make all VERSION=${{ inputs.tag }}
 
@@ -39,18 +98,152 @@ jobs:
           name: rocq-bootstrap-windows
           path: windows/rocq-bootstrap.exe
 
-  create-release:
-    name: Create draft release
-    needs: [build-windows]
-    runs-on: ubuntu-latest
+  # ──────────────────────────────────────────────
+  # macOS
+  # ──────────────────────────────────────────────
+
+  macos:
+    name: Build macOS
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download Windows artifact
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Go vet
+        working-directory: macos
+        run: go vet ./...
+
+      - name: Build and package DMG
+        working-directory: macos
+        run: make all VERSION=${{ inputs.tag }}
+
+      - name: Verify DMG
+        working-directory: macos
+        run: |
+          test -f rocq-bootstrap.dmg
+          SIZE=$(stat -f%z rocq-bootstrap.dmg)
+          echo "DMG size: $SIZE bytes"
+          if [ "$SIZE" -lt 1000000 ]; then
+            echo "DMG seems too small ($SIZE bytes)"
+            exit 1
+          fi
+
+      - name: Verify app bundle inside DMG
+        working-directory: macos
+        run: |
+          MOUNT_POINT=$(hdiutil attach rocq-bootstrap.dmg -nobrowse | awk '/Volumes\// {for(i=3;i<=NF;i++) printf "%s ", $i; print ""}' | sed 's/ *$//')
+          test -d "$MOUNT_POINT/Rocq Bootstrap.app"
+          test -f "$MOUNT_POINT/Rocq Bootstrap.app/Contents/MacOS/rocq-bootstrap"
+          hdiutil detach "$MOUNT_POINT" || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rocq-bootstrap-macos
+          path: macos/rocq-bootstrap.dmg
+
+  # ──────────────────────────────────────────────
+  # Release
+  # ──────────────────────────────────────────────
+
+  release:
+    name: Create release
+    needs: [linux, windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: rocq-bootstrap-windows
           path: artifacts/
+
+      - name: Verify all artifacts
+        run: |
+          test -f artifacts/rocq-bootstrap-windows/rocq-bootstrap.exe
+          echo "Windows: $(stat -c%s artifacts/rocq-bootstrap-windows/rocq-bootstrap.exe) bytes"
+          test -f artifacts/rocq-bootstrap-macos/rocq-bootstrap.dmg
+          echo "macOS:   $(stat -c%s artifacts/rocq-bootstrap-macos/rocq-bootstrap.dmg) bytes"
+          test -f artifacts/rocq-bootstrap-linux/rocq-bootstrap
+          echo "Linux:   $(stat -c%s artifacts/rocq-bootstrap-linux/rocq-bootstrap) bytes"
+
+      - name: Generate SHA256 checksums
+        run: |
+          cd artifacts
+          sha256sum rocq-bootstrap-windows/rocq-bootstrap.exe \
+                    rocq-bootstrap-macos/rocq-bootstrap.dmg \
+                    rocq-bootstrap-linux/rocq-bootstrap | tee SHA256SUMS.txt
+
+      - name: Extract manifest info
+        id: manifest
+        run: |
+          echo "rocq_version=$(python3 -c "import json; print(json.load(open('manifest/latest.json'))['rocq_version'])")" >> "$GITHUB_OUTPUT"
+          echo "platform_release=$(python3 -c "import json; print(json.load(open('manifest/latest.json'))['platform_release'])")" >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes
+        run: |
+          ROCQ_VERSION="${{ steps.manifest.outputs.rocq_version }}"
+          PLATFORM_RELEASE="${{ steps.manifest.outputs.platform_release }}"
+
+          # Find previous tag
+          PREV_TAG=$(git tag --sort=-v:refname | head -n 1 || echo "")
+
+          # Generate changelog
+          if [ -z "$PREV_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges HEAD)
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges "${PREV_TAG}..HEAD")
+          fi
+
+          # Checksums
+          WIN_SHA=$(sha256sum artifacts/rocq-bootstrap-windows/rocq-bootstrap.exe | awk '{print $1}')
+          MAC_SHA=$(sha256sum artifacts/rocq-bootstrap-macos/rocq-bootstrap.dmg | awk '{print $1}')
+          LIN_SHA=$(sha256sum artifacts/rocq-bootstrap-linux/rocq-bootstrap | awk '{print $1}')
+
+          cat > /tmp/release-body.md << 'ENDOFHEADER'
+          Cross-platform GUI installer for Rocq Platform.
+          ENDOFHEADER
+
+          # Build the full body (can't use heredoc with variable expansion and EOF in same block)
+          cat > /tmp/release-body.md << ENDOFBODY
+          Cross-platform GUI installer for Rocq Platform **${PLATFORM_RELEASE}** (Rocq **${ROCQ_VERSION}**).
+
+          ## Installation
+
+          ### Windows
+          Download \`rocq-bootstrap-windows-x86_64.exe\` and run it.
+
+          ### macOS (Apple Silicon)
+          Download \`rocq-bootstrap-macos-arm64.dmg\`, open the DMG and drag the app to Applications.
+
+          ### Linux (x86_64)
+          \`\`\`bash
+          chmod +x rocq-bootstrap-linux-x86_64
+          ./rocq-bootstrap-linux-x86_64              # run directly
+          ./rocq-bootstrap-linux-x86_64 --install    # install as desktop app
+          \`\`\`
+
+          ## What's changed
+
+          ${CHANGELOG}
+
+          $([ -n "$PREV_TAG" ] && echo "**Full changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${{ inputs.tag }}")
+
+          ## SHA256 checksums
+
+          \`\`\`
+          ${WIN_SHA}  rocq-bootstrap-windows-x86_64.exe
+          ${MAC_SHA}  rocq-bootstrap-macos-arm64.dmg
+          ${LIN_SHA}  rocq-bootstrap-linux-x86_64
+          \`\`\`
+          ENDOFBODY
+
+          sed -i 's/^          //' /tmp/release-body.md
 
       - name: Create tag
         run: |
@@ -64,5 +257,8 @@ jobs:
           gh release create ${{ inputs.tag }} \
             --title "Rocq Bootstrap ${{ inputs.tag }}" \
             --draft \
-            --generate-notes \
-            artifacts/rocq-bootstrap.exe#rocq-bootstrap-windows-x86_64.exe
+            --notes-file /tmp/release-body.md \
+            artifacts/rocq-bootstrap-windows/rocq-bootstrap.exe#rocq-bootstrap-windows-x86_64.exe \
+            artifacts/rocq-bootstrap-macos/rocq-bootstrap.dmg#rocq-bootstrap-macos-arm64.dmg \
+            artifacts/rocq-bootstrap-linux/rocq-bootstrap#rocq-bootstrap-linux-x86_64 \
+            artifacts/SHA256SUMS.txt#SHA256SUMS.txt

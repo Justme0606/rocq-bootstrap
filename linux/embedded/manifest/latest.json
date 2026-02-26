@@ -1,0 +1,60 @@
+{
+  "channel": "stable",
+  "platform_release": "2025.08.1",
+  "rocq_version": "9.0.0",
+  "assets": {
+    "macos": {
+      "arm64": {
+        "type": "dmg",
+        "url": "https://github.com/rocq-prover/platform/releases/download/2025.08.1/signed_Rocq-Platform-release-2025.08.2.dmg",
+        "sha256": ""
+      }
+    },
+    "windows": {
+      "x86_64": {
+        "type": "exe",
+        "url": "https://github.com/rocq-prover/platform/releases/download/2025.08.1/signed_Rocq-Platform-release-2025.08.1-version.9.0.2025.08-Windows-x86_64.exe",
+        "sha256": ""
+      }
+    },
+    "linux": {
+      "x86_64": {
+        "type": "opam",
+        "opam": {
+          "ocaml_compiler": "ocaml-base-compiler.4.14.2",
+          "switch_prefix": "CP",
+          "repo_name": "rocq-released",
+          "repo_url": "https://rocq-prover.org/opam/released",
+          "packages": [
+            {
+              "name": "rocq-runtime",
+              "version": "9.0.0"
+            },
+            {
+              "name": "rocq-core",
+              "version": "9.0.0"
+            },
+            {
+              "name": "rocq-stdlib",
+              "version": "9.0.0"
+            },
+            {
+              "name": "rocq-prover",
+              "version": "9.0.0"
+            },
+            {
+              "name": "vsrocq-language-server",
+              "version": "2.3.4",
+              "optional": "skip_vscode"
+            },
+            {
+              "name": "rocqide",
+              "version": "9.0.0",
+              "optional": "with_rocqide"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

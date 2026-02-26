@@ -6,7 +6,46 @@ on:
     branches: [main]
 
 jobs:
-  doctor-linux:
+  # ──────────────────────────────────────────────
+  # Validation
+  # ──────────────────────────────────────────────
+
+  validate:
+    name: Validate manifest & templates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate manifest JSON
+        run: |
+          python3 -c "
+          import json
+          m = json.load(open('manifest/latest.json'))
+          assert m['rocq_version'], 'missing rocq_version'
+          assert m['platform_release'], 'missing platform_release'
+          a = m['assets']
+          assert 'windows' in a and 'x86_64' in a['windows'], 'missing windows asset'
+          assert 'macos' in a and 'arm64' in a['macos'], 'missing macos asset'
+          assert 'linux' in a and 'x86_64' in a['linux'], 'missing linux asset'
+          assert a['linux']['x86_64']['type'] == 'opam', 'linux asset should be opam type'
+          print('Manifest OK: Rocq', m['rocq_version'], '- Platform', m['platform_release'])
+          "
+
+      - name: Validate templates
+        run: |
+          test -f templates/test.v
+          test -f templates/main.v
+          test -f templates/_RocqProject
+          test -f templates/vscode-settings.json
+          grep -q "__VSROCQTOP__" templates/vscode-settings.json
+          echo "All templates OK"
+
+  # ──────────────────────────────────────────────
+  # Shell installer (Linux headless)
+  # ──────────────────────────────────────────────
+
+  shell-installer:
+    name: Shell installer (Linux)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,3 +61,290 @@ jobs:
           chmod +x install.sh
           ./install.sh --skip-vscode --workspace /tmp/rocq-ws --recreate-switch
           ./install.sh --doctor --skip-vscode --workspace /tmp/rocq-ws
+
+  # ──────────────────────────────────────────────
+  # Linux GUI
+  # ──────────────────────────────────────────────
+
+  linux:
+    name: Linux (build + test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install Fyne system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl-dev libxxf86vm-dev libxi-dev \
+            libxcursor-dev libxrandr-dev libxinerama-dev
+
+      - name: Go vet
+        working-directory: linux
+        run: go vet ./...
+
+      - name: Build
+        working-directory: linux
+        run: make all
+
+      - name: Verify ELF binary
+        working-directory: linux
+        run: |
+          file rocq-bootstrap | grep -q "ELF 64-bit LSB"
+          SIZE=$(stat -c%s rocq-bootstrap)
+          echo "Binary size: $SIZE bytes"
+          if [ "$SIZE" -lt 1000000 ]; then
+            echo "Binary seems too small"
+            exit 1
+          fi
+
+      - name: Test --help
+        working-directory: linux
+        run: |
+          OUTPUT=$(./rocq-bootstrap --help)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "\-\-install"
+          echo "$OUTPUT" | grep -q "\-\-uninstall"
+
+      - name: Test --install / --uninstall
+        working-directory: linux
+        run: |
+          ./rocq-bootstrap --install
+          test -f "$HOME/.local/bin/rocq-bootstrap"
+          test -f "$HOME/.local/share/icons/hicolor/256x256/apps/rocq-bootstrap.png"
+          test -f "$HOME/.local/share/applications/rocq-bootstrap.desktop"
+          "$HOME/.local/bin/rocq-bootstrap" --help | grep -q "Launch the GUI"
+          echo "Install OK"
+
+          ./rocq-bootstrap --uninstall
+          test ! -f "$HOME/.local/bin/rocq-bootstrap"
+          test ! -f "$HOME/.local/share/icons/hicolor/256x256/apps/rocq-bootstrap.png"
+          test ! -f "$HOME/.local/share/applications/rocq-bootstrap.desktop"
+          echo "Uninstall OK"
+
+      - name: Test embedded assets
+        working-directory: linux
+        run: |
+          python3 -c "import json; json.load(open('embedded/manifest/latest.json'))"
+          test -f embedded/templates/test.v
+          test -f embedded/templates/main.v
+          test -f embedded/templates/_RocqProject
+          test -f embedded/templates/vscode-settings.json
+
+      - name: Smoke test — launch headless
+        working-directory: linux
+        timeout-minutes: 1
+        continue-on-error: true
+        run: |
+          ./rocq-bootstrap &
+          PID=$!
+          sleep 3
+          if kill -0 $PID 2>/dev/null; then
+            echo "Process running (PID: $PID), stopping."
+            kill $PID || true
+            echo "Smoke test passed."
+          else
+            wait $PID 2>/dev/null || true
+            echo "Process exited (expected in headless CI)."
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rocq-bootstrap-linux
+          path: linux/rocq-bootstrap
+
+  # ──────────────────────────────────────────────
+  # Windows GUI
+  # ──────────────────────────────────────────────
+
+  windows-cross:
+    name: Windows (cross-compile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install mingw-w64
+        run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64
+
+      - name: Go vet
+        working-directory: windows
+        run: CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc GOOS=windows GOARCH=amd64 go vet ./...
+
+      - name: Build
+        working-directory: windows
+        run: make all
+
+      - name: Verify PE32+ executable
+        working-directory: windows
+        run: |
+          file rocq-bootstrap.exe | grep -q "PE32+ executable (GUI) x86-64"
+          SIZE=$(stat -c%s rocq-bootstrap.exe)
+          echo "Exe size: $SIZE bytes"
+          if [ "$SIZE" -lt 1000000 ]; then
+            echo "Exe seems too small"
+            exit 1
+          fi
+
+      - name: Test embedded assets
+        working-directory: windows
+        run: |
+          python3 -c "import json; json.load(open('embedded/manifest/latest.json'))"
+          test -f embedded/templates/test.v
+          test -f embedded/templates/main.v
+          test -f embedded/templates/_RocqProject
+          test -f embedded/templates/vscode-settings.json
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rocq-bootstrap-windows
+          path: windows/rocq-bootstrap.exe
+
+  windows-native:
+    name: Windows (native build + smoke test)
+    needs: windows-cross
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Sync assets
+        shell: bash
+        working-directory: windows
+        run: |
+          cp -f ../manifest/latest.json embedded/manifest/latest.json
+          cp -f ../templates/test.v embedded/templates/test.v
+          cp -f ../templates/main.v embedded/templates/main.v
+          cp -f ../templates/_RocqProject embedded/templates/_RocqProject
+          cp -f ../templates/vscode-settings.json embedded/templates/vscode-settings.json
+
+      - name: Build natively
+        shell: bash
+        working-directory: windows
+        run: go build -ldflags="-H windowsgui -s -w" -o rocq-bootstrap.exe ./cmd/rocq-bootstrap/
+
+      - name: Verify output
+        shell: pwsh
+        run: |
+          if (!(Test-Path "windows\rocq-bootstrap.exe")) { throw "Build failed" }
+          $size = (Get-Item "windows\rocq-bootstrap.exe").Length
+          Write-Host "Native build succeeded: $size bytes"
+          if ($size -lt 1MB) { throw "exe too small ($size bytes)" }
+
+      - name: Download cross-compiled artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rocq-bootstrap-windows
+          path: cross/
+
+      - name: Smoke test — cross-compiled exe
+        shell: pwsh
+        timeout-minutes: 1
+        continue-on-error: true
+        run: |
+          $proc = Start-Process -FilePath "cross\rocq-bootstrap.exe" -PassThru -NoNewWindow
+          Start-Sleep -Seconds 5
+          if (!$proc.HasExited) {
+            Write-Host "Process running (PID: $($proc.Id)), stopping."
+            Stop-Process -Id $proc.Id -Force
+            Write-Host "Smoke test passed."
+          } else {
+            Write-Host "Process exited with code: $($proc.ExitCode) (expected in headless CI)."
+          }
+
+  # ──────────────────────────────────────────────
+  # macOS GUI
+  # ──────────────────────────────────────────────
+
+  macos:
+    name: macOS (build + test)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Go vet
+        working-directory: macos
+        run: go vet ./...
+
+      - name: Build and package DMG
+        working-directory: macos
+        run: make all
+
+      - name: Verify Mach-O binary
+        working-directory: macos
+        run: file rocq-bootstrap | grep -q "Mach-O"
+
+      - name: Verify app bundle
+        working-directory: macos
+        run: |
+          test -d "Rocq Bootstrap.app/Contents/MacOS"
+          test -f "Rocq Bootstrap.app/Contents/MacOS/rocq-bootstrap"
+          test -f "Rocq Bootstrap.app/Contents/Info.plist"
+
+      - name: Verify DMG
+        working-directory: macos
+        run: |
+          test -f rocq-bootstrap.dmg
+          SIZE=$(stat -f%z rocq-bootstrap.dmg)
+          echo "DMG size: $SIZE bytes"
+          if [ "$SIZE" -lt 1000000 ]; then
+            echo "DMG seems too small"
+            exit 1
+          fi
+
+      - name: Test embedded assets
+        working-directory: macos
+        run: |
+          python3 -c "import json; json.load(open('embedded/manifest/latest.json'))"
+          test -f embedded/templates/test.v
+          test -f embedded/templates/main.v
+          test -f embedded/templates/_RocqProject
+          test -f embedded/templates/vscode-settings.json
+
+      - name: Smoke test — mount DMG and verify contents
+        working-directory: macos
+        run: |
+          MOUNT_POINT=$(hdiutil attach rocq-bootstrap.dmg -nobrowse | awk '/Volumes\// {for(i=3;i<=NF;i++) printf "%s ", $i; print ""}' | sed 's/ *$//')
+          echo "Mounted at: $MOUNT_POINT"
+          test -d "$MOUNT_POINT/Rocq Bootstrap.app"
+          test -f "$MOUNT_POINT/Rocq Bootstrap.app/Contents/MacOS/rocq-bootstrap"
+          echo "DMG contents OK"
+          hdiutil detach "$MOUNT_POINT" || true
+
+      - name: Smoke test — launch headless
+        working-directory: macos
+        timeout-minutes: 1
+        continue-on-error: true
+        run: |
+          ./rocq-bootstrap &
+          PID=$!
+          sleep 3
+          if kill -0 $PID 2>/dev/null; then
+            echo "Process running (PID: $PID), stopping."
+            kill $PID || true
+            echo "Smoke test passed."
+          else
+            wait $PID 2>/dev/null || true
+            echo "Process exited (expected in headless CI)."
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rocq-bootstrap-macos
+          path: macos/rocq-bootstrap.dmg

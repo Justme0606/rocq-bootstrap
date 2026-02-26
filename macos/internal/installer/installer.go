@@ -82,10 +82,19 @@ func (l *Logger) Close() {
 	}
 }
 
-// FindExistingInstallation searches for an existing Rocq Platform .app installation.
-// Returns the .app path, or "" if nothing is found.
-func FindExistingInstallation() string {
+// FindExistingInstallations searches for all existing Rocq Platform installations.
+// Returns a deduplicated list of .app paths or binary directories.
+func FindExistingInstallations() []string {
 	debugLog("[detect] === Starting existing installation search ===")
+	var found []string
+	seen := make(map[string]bool)
+
+	addIfNew := func(path string) {
+		if !seen[path] {
+			seen[path] = true
+			found = append(found, path)
+		}
+	}
 
 	home, _ := os.UserHomeDir()
 	searchDirs := []string{"/Applications"}
@@ -93,7 +102,7 @@ func FindExistingInstallation() string {
 		searchDirs = append(searchDirs, filepath.Join(home, "Applications"))
 	}
 
-	// 1. Glob for *[Rr]ocq*.app in /Applications and ~/Applications
+	// 1. Glob for *[Rr]ocq*.app and *[Cc]oq*.app in /Applications and ~/Applications
 	for _, dir := range searchDirs {
 		debugLog("[detect] searching in %s", dir)
 		for _, pattern := range []string{"*[Rr]ocq*.app", "*[Cc]oq*.app"} {
@@ -105,7 +114,7 @@ func FindExistingInstallation() string {
 				info, err := os.Stat(m)
 				if err == nil && info.IsDir() {
 					debugLog("[detect] => Found: %s", m)
-					return m
+					addIfNew(m)
 				}
 			}
 		}
@@ -115,12 +124,11 @@ func FindExistingInstallation() string {
 	debugLog("[detect] checking PATH for rocq")
 	if rocqPath, err := exec.LookPath("rocq"); err == nil {
 		debugLog("[detect] => Found rocq in PATH: %s", rocqPath)
-		// Try to find the .app bundle containing this binary
 		dir := filepath.Dir(rocqPath)
-		// Walk up to find .app
 		for i := 0; i < 6; i++ {
 			if strings.HasSuffix(dir, ".app") {
-				return dir
+				addIfNew(dir)
+				break
 			}
 			parent := filepath.Dir(dir)
 			if parent == dir {
@@ -128,7 +136,6 @@ func FindExistingInstallation() string {
 			}
 			dir = parent
 		}
-		return rocqPath
 	}
 
 	// 3. Homebrew paths
@@ -136,12 +143,14 @@ func FindExistingInstallation() string {
 	for _, p := range []string{"/opt/homebrew/bin/rocq", "/usr/local/bin/rocq"} {
 		if info, err := os.Stat(p); err == nil && !info.IsDir() {
 			debugLog("[detect] => Found: %s", p)
-			return filepath.Dir(p)
+			addIfNew(filepath.Dir(p))
 		}
 	}
 
-	debugLog("[detect] === No existing installation found ===")
-	return ""
+	if len(found) == 0 {
+		debugLog("[detect] === No existing installation found ===")
+	}
+	return found
 }
 
 // Result holds information about the installation outcome.

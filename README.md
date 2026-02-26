@@ -46,18 +46,37 @@ configuration.
 
 ### Linux
 
-On Linux systems, Rocq is installed using `opam`.
+On Linux systems, Rocq is installed using `opam`. Two installation
+methods are available:
 
-The installer:
+**GUI installer** (`rocq-bootstrap`): A standalone graphical installer
+(Fyne) that handles the entire setup:
 
-- Creates a dedicated switch following Rocq Platform naming
+- Checks for opam and initialises it if needed
+- Creates a dedicated opam switch following Rocq Platform naming
+  conventions
+- Configures the official Rocq opam repository
+- Installs all Rocq packages with version pinning
+- Creates a workspace with activation scripts (`activate.sh`,
+  `activate-shell.sh`)
+- Installs the VSRocq extension in VSCode and opens the workspace
+
+The GUI displays real-time progress and includes a Doctor diagnostic
+button.
+
+**Shell installer** (`install.sh`): The original script-based installer
+for headless or automated setups.
+
+Both methods:
+
+- Create a dedicated switch following Rocq Platform naming
   conventions
 
-- Configures the official Rocq opam repository:
+- Configure the official Rocq opam repository:
 
       https://rocq-prover.org/opam/released
 
-- Installs a fully aligned Rocq stack:
+- Install a fully aligned Rocq stack:
   - `rocq-runtime=<version>`
   - `rocq-core=<version>`
   - `rocq-stdlib=<version>`
@@ -138,10 +157,21 @@ The manifest guarantees:
 
 ### Linux
 
+For the shell installer (`install.sh`):
+
 - `opam ≥ 2.1`
 - `jq`
 - `curl`
 - VSCode (optional but recommended)
+
+For the GUI installer (`rocq-bootstrap`): no prerequisites for end
+users — just run the binary. opam will be detected automatically.
+
+For building the GUI from source:
+
+- `go >= 1.22`
+- Fyne system dependencies: `libgl-dev libxxf86vm-dev libxi-dev
+  libxcursor-dev libxrandr-dev libxinerama-dev`
 
 ### macOS
 
@@ -186,6 +216,41 @@ For building from source (cross-compilation from Linux):
 
 This removes and recreates the opam switch to ensure a clean
 environment.
+
+---
+
+### Linux (GUI)
+
+Download `rocq-bootstrap-linux-x86_64` from the
+[Releases](https://github.com/justme0606/rocq-bootstrap/releases)
+page, then:
+
+```bash
+chmod +x rocq-bootstrap-linux-x86_64
+
+# Run directly (no installation needed)
+./rocq-bootstrap-linux-x86_64
+
+# Or install as a desktop application (icon in app menu)
+./rocq-bootstrap-linux-x86_64 --install
+
+# Uninstall
+rocq-bootstrap --uninstall
+```
+
+`--install` copies the binary to `~/.local/bin/`, the Rocq icon to
+`~/.local/share/icons/`, and creates a `.desktop` entry so the
+application appears in your desktop environment's application menu.
+
+To build from source:
+
+```bash
+cd linux
+make all       # production build
+make install   # install to ~/.local (binary, icon, .desktop)
+make uninstall # remove from ~/.local
+make clean     # remove build artifacts
+```
 
 ---
 

@@ -140,38 +140,44 @@ func hasRocqInstallation(dir string) bool {
 	return false
 }
 
-// FindExistingInstallation searches for an existing Rocq Platform installation.
-// It checks (in order): the configured install directory, the default Rocq Platform
-// installation paths (C:\Rocq-platform~*), Windows registry uninstall entries,
-// common installation paths, and the system PATH.
-// Returns the installation directory path, or "" if nothing is found.
-func FindExistingInstallation() string {
+// FindExistingInstallations searches for all existing Rocq Platform installations.
+// It checks: glob patterns, Windows registry, common paths, and the system PATH.
+// Returns a deduplicated list of installation directory paths.
+func FindExistingInstallations() []string {
 	debugLog("[detect] === Starting existing installation search ===")
+	var found []string
+	seen := make(map[string]bool)
+
+	addIfNew := func(dir string) {
+		key := strings.ToLower(dir)
+		if !seen[key] {
+			seen[key] = true
+			found = append(found, dir)
+		}
+	}
 
 	// 1. Default Rocq Platform installation paths (e.g. C:\Rocq-platform~9.0~2025.08)
 	debugLog("[detect] Step 1: globbing C:\\Rocq-platform~*")
 	matches, err := filepath.Glob(`C:\Rocq-platform~*`)
 	if err != nil {
 		debugLog("[detect]   glob error: %v", err)
-	} else if len(matches) == 0 {
-		debugLog("[detect]   no matches found")
 	} else {
-		debugLog("[detect]   glob matches: %v", matches)
 		for _, m := range matches {
 			if hasRocqInstallation(m) {
 				debugLog("[detect] => Found at Rocq Platform dir: %s", m)
-				return m
+				addIfNew(m)
 			}
 		}
 	}
 
 	// 2. Windows registry: look for uninstall entries mentioning "Rocq"
 	debugLog("[detect] Step 2: searching Windows registry")
-	if dir := findInstallFromRegistry(); dir != "" {
-		debugLog("[detect] => Found via registry: %s", dir)
-		return dir
+	for _, dir := range findAllFromRegistry() {
+		if hasRocqInstallation(dir) {
+			debugLog("[detect] => Found via registry: %s", dir)
+			addIfNew(dir)
+		}
 	}
-	debugLog("[detect]   nothing found in registry")
 
 	// 3. Common installation paths
 	commonPaths := []string{
@@ -183,7 +189,7 @@ func FindExistingInstallation() string {
 	for _, p := range commonPaths {
 		if hasRocqInstallation(p) {
 			debugLog("[detect] => Found at common path: %s", p)
-			return p
+			addIfNew(p)
 		}
 	}
 
@@ -192,27 +198,26 @@ func FindExistingInstallation() string {
 	for _, name := range []string{"rocq", "rocq.exe"} {
 		if rocqPath, err := exec.LookPath(name); err == nil {
 			debugLog("[detect]   found %s in PATH: %s", name, rocqPath)
-			// rocqPath is something like "C:\...\bin\rocq"; return the parent of bin/
 			dir := filepath.Dir(filepath.Dir(rocqPath))
 			if hasRocqInstallation(dir) {
-				debugLog("[detect] => Found via PATH (parent of bin): %s", dir)
-				return dir
+				addIfNew(dir)
+			} else {
+				dir = filepath.Dir(rocqPath)
+				addIfNew(dir)
 			}
-			// If rocq is directly in a directory (not in bin/)
-			dir = filepath.Dir(rocqPath)
-			debugLog("[detect] => Found via PATH (direct parent): %s", dir)
-			return dir
 		}
 	}
-	debugLog("[detect]   rocq not found in PATH")
 
-	debugLog("[detect] === No existing installation found ===")
-	return ""
+	if len(found) == 0 {
+		debugLog("[detect] === No existing installation found ===")
+	}
+	return found
 }
 
-// findInstallFromRegistry searches the Windows uninstall registry keys for entries
-// whose DisplayName contains "Rocq" and returns the InstallLocation if found.
-func findInstallFromRegistry() string {
+// findAllFromRegistry searches the Windows uninstall registry keys for entries
+// whose DisplayName contains "Rocq" and returns all InstallLocation values.
+func findAllFromRegistry() []string {
+	var results []string
 	uninstallKey := `SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall`
 
 	for _, rootKey := range []registry.Key{registry.LOCAL_MACHINE, registry.CURRENT_USER} {
@@ -239,11 +244,12 @@ func findInstallFromRegistry() string {
 				continue
 			}
 
-			if strings.Contains(strings.ToLower(displayName), "rocq") {
+			lower := strings.ToLower(displayName)
+			if strings.Contains(lower, "rocq") || strings.Contains(lower, "coq") {
 				installLoc, _, err := sk.GetStringValue("InstallLocation")
 				sk.Close()
-				if err == nil && installLoc != "" && hasRocqInstallation(installLoc) {
-					return installLoc
+				if err == nil && installLoc != "" {
+					results = append(results, installLoc)
 				}
 				continue
 			}
@@ -251,7 +257,7 @@ func findInstallFromRegistry() string {
 		}
 	}
 
-	return ""
+	return results
 }
 
 // Result holds information about the installation outcome.
