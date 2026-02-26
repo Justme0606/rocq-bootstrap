@@ -12,8 +12,63 @@ permissions:
   contents: write
 
 jobs:
-  build-windows:
-    name: Build Windows executable
+  # ──────────────────────────────────────────────
+  # Linux
+  # ──────────────────────────────────────────────
+
+  linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install Fyne system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl-dev libxxf86vm-dev libxi-dev \
+            libxcursor-dev libxrandr-dev libxinerama-dev
+
+      - name: Go vet
+        working-directory: linux
+        run: go vet ./...
+
+      - name: Build
+        working-directory: linux
+        run: make all VERSION=${{ inputs.tag }}
+
+      - name: Verify ELF binary
+        working-directory: linux
+        run: file rocq-bootstrap | grep -q "ELF 64-bit LSB"
+
+      - name: Test --help
+        working-directory: linux
+        run: ./rocq-bootstrap --help | grep -q "\-\-install"
+
+      - name: Test --install / --uninstall
+        working-directory: linux
+        run: |
+          ./rocq-bootstrap --install
+          test -f "$HOME/.local/bin/rocq-bootstrap"
+          test -f "$HOME/.local/share/applications/rocq-bootstrap.desktop"
+          ./rocq-bootstrap --uninstall
+          test ! -f "$HOME/.local/bin/rocq-bootstrap"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rocq-bootstrap-linux
+          path: linux/rocq-bootstrap
+
+  # ──────────────────────────────────────────────
+  # Windows
+  # ──────────────────────────────────────────────
+
+  windows:
+    name: Build Windows
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,9 +82,9 @@ jobs:
 
       - name: Go vet
         working-directory: windows
-        run: GOOS=windows go vet ./...
+        run: CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc GOOS=windows GOARCH=amd64 go vet ./...
 
-      - name: Build rocq-bootstrap.exe
+      - name: Build
         working-directory: windows
         run: make all VERSION=${{ inputs.tag }}
 
@@ -43,8 +98,12 @@ jobs:
           name: rocq-bootstrap-windows
           path: windows/rocq-bootstrap.exe
 
-  build-macos:
-    name: Build macOS DMG
+  # ──────────────────────────────────────────────
+  # macOS
+  # ──────────────────────────────────────────────
+
+  macos:
+    name: Build macOS
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -86,77 +145,32 @@ jobs:
           name: rocq-bootstrap-macos
           path: macos/rocq-bootstrap.dmg
 
-  build-linux:
-    name: Build Linux binary
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+  # ──────────────────────────────────────────────
+  # Release
+  # ──────────────────────────────────────────────
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.22"
-
-      - name: Install Fyne system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgl-dev libxxf86vm-dev libxi-dev \
-            libxcursor-dev libxrandr-dev libxinerama-dev
-
-      - name: Go vet
-        working-directory: linux
-        run: go vet ./...
-
-      - name: Build rocq-bootstrap
-        working-directory: linux
-        run: make all VERSION=${{ inputs.tag }}
-
-      - name: Verify ELF binary
-        working-directory: linux
-        run: file rocq-bootstrap | grep -q "ELF 64-bit LSB"
-
-      - name: Test --help flag
-        working-directory: linux
-        run: ./rocq-bootstrap --help | grep -q "\-\-install"
-
-      - name: Test --install and --uninstall
-        working-directory: linux
-        run: |
-          ./rocq-bootstrap --install
-          test -f "$HOME/.local/bin/rocq-bootstrap"
-          test -f "$HOME/.local/share/applications/rocq-bootstrap.desktop"
-          ./rocq-bootstrap --uninstall
-          test ! -f "$HOME/.local/bin/rocq-bootstrap"
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: rocq-bootstrap-linux
-          path: linux/rocq-bootstrap
-
-  create-release:
-    name: Create draft release
-    needs: [build-windows, build-macos, build-linux]
+  release:
+    name: Create release
+    needs: [linux, windows, macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # full history for changelog generation
+          fetch-depth: 0
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts/
 
-      - name: Verify all artifacts present
+      - name: Verify all artifacts
         run: |
           test -f artifacts/rocq-bootstrap-windows/rocq-bootstrap.exe
-          echo "Windows exe: $(stat -c%s artifacts/rocq-bootstrap-windows/rocq-bootstrap.exe) bytes"
-
+          echo "Windows: $(stat -c%s artifacts/rocq-bootstrap-windows/rocq-bootstrap.exe) bytes"
           test -f artifacts/rocq-bootstrap-macos/rocq-bootstrap.dmg
-          echo "macOS DMG: $(stat -c%s artifacts/rocq-bootstrap-macos/rocq-bootstrap.dmg) bytes"
-
+          echo "macOS:   $(stat -c%s artifacts/rocq-bootstrap-macos/rocq-bootstrap.dmg) bytes"
           test -f artifacts/rocq-bootstrap-linux/rocq-bootstrap
-          echo "Linux binary: $(stat -c%s artifacts/rocq-bootstrap-linux/rocq-bootstrap) bytes"
+          echo "Linux:   $(stat -c%s artifacts/rocq-bootstrap-linux/rocq-bootstrap) bytes"
 
       - name: Generate SHA256 checksums
         run: |
@@ -171,33 +185,31 @@ jobs:
           echo "rocq_version=$(python3 -c "import json; print(json.load(open('manifest/latest.json'))['rocq_version'])")" >> "$GITHUB_OUTPUT"
           echo "platform_release=$(python3 -c "import json; print(json.load(open('manifest/latest.json'))['platform_release'])")" >> "$GITHUB_OUTPUT"
 
-      - name: Generate changelog
-        id: changelog
-        run: |
-          PREV_TAG=$(git tag --sort=-v:refname | head -n 1 || echo "")
-          if [ -z "$PREV_TAG" ]; then
-            echo "No previous tag found, using full log"
-            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges HEAD)
-          else
-            echo "Previous tag: $PREV_TAG"
-            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges "${PREV_TAG}..HEAD")
-          fi
-
-          # Write to file to preserve multiline
-          echo "$CHANGELOG" > /tmp/changelog.txt
-          echo "prev_tag=$PREV_TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Generate release body
+      - name: Generate release notes
         run: |
           ROCQ_VERSION="${{ steps.manifest.outputs.rocq_version }}"
           PLATFORM_RELEASE="${{ steps.manifest.outputs.platform_release }}"
-          PREV_TAG="${{ steps.changelog.outputs.prev_tag }}"
-          CHANGELOG=$(cat /tmp/changelog.txt)
 
+          # Find previous tag
+          PREV_TAG=$(git tag --sort=-v:refname | head -n 1 || echo "")
+
+          # Generate changelog
+          if [ -z "$PREV_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges HEAD)
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges "${PREV_TAG}..HEAD")
+          fi
+
+          # Checksums
           WIN_SHA=$(sha256sum artifacts/rocq-bootstrap-windows/rocq-bootstrap.exe | awk '{print $1}')
           MAC_SHA=$(sha256sum artifacts/rocq-bootstrap-macos/rocq-bootstrap.dmg | awk '{print $1}')
           LIN_SHA=$(sha256sum artifacts/rocq-bootstrap-linux/rocq-bootstrap | awk '{print $1}')
 
+          cat > /tmp/release-body.md << 'ENDOFHEADER'
+          Cross-platform GUI installer for Rocq Platform.
+          ENDOFHEADER
+
+          # Build the full body (can't use heredoc with variable expansion and EOF in same block)
           cat > /tmp/release-body.md << ENDOFBODY
           Cross-platform GUI installer for Rocq Platform **${PLATFORM_RELEASE}** (Rocq **${ROCQ_VERSION}**).
 
@@ -217,11 +229,13 @@ jobs:
           \`\`\`
 
           ## What's changed
+
           ${CHANGELOG}
 
-          $([ -n "$PREV_TAG" ] && echo "**Full changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${{ inputs.tag }}" || echo "")
+          $([ -n "$PREV_TAG" ] && echo "**Full changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${{ inputs.tag }}")
 
           ## SHA256 checksums
+
           \`\`\`
           ${WIN_SHA}  rocq-bootstrap-windows-x86_64.exe
           ${MAC_SHA}  rocq-bootstrap-macos-arm64.dmg
@@ -229,7 +243,6 @@ jobs:
           \`\`\`
           ENDOFBODY
 
-          # Remove leading whitespace from heredoc
           sed -i 's/^          //' /tmp/release-body.md
 
       - name: Create tag
