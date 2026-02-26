@@ -72,7 +72,7 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 	}
 	w := a.NewWindow(windowTitle)
 	w.Resize(fyne.NewSize(windowWidth, windowHeight))
-	w.SetFixedSize(true)
+	w.SetFixedSize(false)
 
 	// --- Header: icon + title + version info ---
 	var headerIcon *canvas.Image
@@ -151,25 +151,49 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 	installBtn = widget.NewButtonWithIcon("Install", theme.DownloadIcon(), func() {
 		installBtn.Disable()
 
-		existingDir := installer.FindExistingInstallation()
-		if existingDir != "" {
-			logP.append(fmt.Sprintf("Existing Rocq Platform detected: %s", existingDir))
-			dialog.ShowCustomConfirm(
-				"Existing Installation Detected",
-				"Reuse",
-				"Reinstall",
-				widget.NewLabel(fmt.Sprintf("The Rocq Platform was found at:\n%s\n\nDo you want to reuse it or reinstall?", existingDir)),
-				func(reuse bool) {
-					if reuse {
-						logP.append("Reusing existing installation...")
-						go runInstallWithOptions(w, m, templates, statusLabel, progressBar, stepLabel, installBtn, logP, existingDir, true)
-					} else {
-						logP.append("Starting fresh installation...")
-						go runInstallWithOptions(w, m, templates, statusLabel, progressBar, stepLabel, installBtn, logP, "", false)
-					}
-				},
-				w,
-			)
+		existingDirs := installer.FindExistingInstallations()
+		if len(existingDirs) > 0 {
+			for _, dir := range existingDirs {
+				logP.append(fmt.Sprintf("Existing Rocq Platform detected: %s", dir))
+			}
+
+			msg := widget.NewLabel("Existing Rocq Platform installations were found.\nSelect one to reuse, or install a new one:")
+			msg.Wrapping = fyne.TextWrapWord
+
+			newInstallLabel := fmt.Sprintf("Install new (%s)", installer.DefaultInstallDir())
+			options := append(existingDirs, newInstallLabel)
+			radio := widget.NewRadioGroup(options, nil)
+			radio.SetSelected(existingDirs[0])
+
+			radioScroll := container.NewScroll(radio)
+			radioScroll.SetMinSize(fyne.NewSize(400, 200))
+
+			closeBtn := widget.NewButton("Close", nil)
+			closeBtn.Importance = widget.HighImportance
+			confirmBtn := widget.NewButton("Continue", nil)
+			confirmBtn.Importance = widget.HighImportance
+
+			buttons := container.NewHBox(layout.NewSpacer(), closeBtn, confirmBtn)
+			content := container.NewVBox(msg, radioScroll, buttons)
+			d := dialog.NewCustomWithoutButtons("Existing Installation Detected", content, w)
+
+			closeBtn.OnTapped = func() {
+				d.Hide()
+				installBtn.Enable()
+			}
+			confirmBtn.OnTapped = func() {
+				d.Hide()
+				selected := radio.Selected
+				if selected == newInstallLabel {
+					logP.append("Starting fresh installation...")
+					go runInstallWithOptions(w, m, templates, statusLabel, progressBar, stepLabel, installBtn, logP, "", false)
+				} else {
+					logP.append(fmt.Sprintf("Reusing installation at %s...", selected))
+					go runInstallWithOptions(w, m, templates, statusLabel, progressBar, stepLabel, installBtn, logP, selected, true)
+				}
+			}
+
+			d.Show()
 		} else {
 			logP.append("Starting installation...")
 			go runInstallWithOptions(w, m, templates, statusLabel, progressBar, stepLabel, installBtn, logP, "", false)
@@ -297,11 +321,19 @@ func runInstallWithOptions(w fyne.Window, m *manifest.Manifest, templates fs.FS,
 	logP.append(fmt.Sprintf("Installed app: %s", result.InstalledApp))
 	logP.append(fmt.Sprintf("Workspace: ~/rocq-workspace"))
 
-	dialog.ShowInformation("Success",
-		"Rocq Platform has been installed successfully.\n\n"+
-			fmt.Sprintf("Installed app: %s\n", result.InstalledApp)+
-			"Workspace: ~/rocq-workspace",
-		w)
+	successMsg := widget.NewLabel(
+		"Rocq Platform has been installed successfully.\n\n" +
+			fmt.Sprintf("Installed app: %s\n", result.InstalledApp) +
+			"Workspace: ~/rocq-workspace")
+	successMsg.Wrapping = fyne.TextWrapWord
+
+	okBtn := widget.NewButton("OK", nil)
+	okBtn.Importance = widget.HighImportance
+
+	successContent := container.NewVBox(successMsg, container.NewHBox(layout.NewSpacer(), okBtn))
+	successDialog := dialog.NewCustomWithoutButtons("Success", successContent, w)
+	okBtn.OnTapped = func() { successDialog.Hide() }
+	successDialog.Show()
 }
 
 func showVSCodeDialog(w fyne.Window) {

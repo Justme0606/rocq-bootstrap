@@ -1,0 +1,124 @@
+name: Linux Build & Smoke Test
+
+on:
+  push:
+    branches: [main, feat/linux-gui]
+    paths:
+      - "linux/**"
+      - "manifest/**"
+      - "templates/**"
+      - ".github/workflows/linux-build.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "linux/**"
+      - "manifest/**"
+      - "templates/**"
+
+jobs:
+  build-linux:
+    name: Build on Linux (x86_64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install Fyne system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl-dev libxxf86vm-dev libxi-dev \
+            libxcursor-dev libxrandr-dev libxinerama-dev
+
+      - name: Go vet
+        working-directory: linux
+        run: go vet ./...
+
+      - name: Build rocq-bootstrap
+        working-directory: linux
+        run: make all
+
+      - name: Verify ELF binary
+        working-directory: linux
+        run: file rocq-bootstrap | grep -q "ELF 64-bit LSB"
+
+      - name: Test --help flag
+        working-directory: linux
+        run: |
+          OUTPUT=$(./rocq-bootstrap --help)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "\-\-install"
+          echo "$OUTPUT" | grep -q "\-\-uninstall"
+
+      - name: Test --install and --uninstall
+        working-directory: linux
+        run: |
+          ./rocq-bootstrap --install
+          test -f "$HOME/.local/bin/rocq-bootstrap"
+          test -f "$HOME/.local/share/icons/hicolor/256x256/apps/rocq-bootstrap.png"
+          test -f "$HOME/.local/share/applications/rocq-bootstrap.desktop"
+          echo "Install OK"
+
+          ./rocq-bootstrap --uninstall
+          test ! -f "$HOME/.local/bin/rocq-bootstrap"
+          test ! -f "$HOME/.local/share/icons/hicolor/256x256/apps/rocq-bootstrap.png"
+          test ! -f "$HOME/.local/share/applications/rocq-bootstrap.desktop"
+          echo "Uninstall OK"
+
+      - name: Test embedded manifest is valid JSON
+        working-directory: linux
+        run: python3 -c "import json; json.load(open('embedded/manifest/latest.json'))"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rocq-bootstrap-linux
+          path: linux/rocq-bootstrap
+
+  smoke-test-linux:
+    name: Smoke test on Linux
+    needs: build-linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: rocq-bootstrap-linux
+          path: .
+
+      - name: Verify binary exists and is valid
+        run: |
+          chmod +x rocq-bootstrap
+          SIZE=$(stat -c%s rocq-bootstrap)
+          echo "rocq-bootstrap size: $SIZE bytes"
+          if [ "$SIZE" -lt 1000000 ]; then
+            echo "Binary seems too small ($SIZE bytes)"
+            exit 1
+          fi
+
+      - name: Test --help works from artifact
+        run: ./rocq-bootstrap --help | grep -q "Launch the GUI installer"
+
+      - name: Test --install works from artifact
+        run: |
+          ./rocq-bootstrap --install
+          test -f "$HOME/.local/bin/rocq-bootstrap"
+          "$HOME/.local/bin/rocq-bootstrap" --help | grep -q "Launch the GUI installer"
+          ./rocq-bootstrap --uninstall
+
+      - name: Smoke test — launch binary headless
+        timeout-minutes: 1
+        continue-on-error: true
+        run: |
+          ./rocq-bootstrap &
+          PID=$!
+          sleep 3
+          if kill -0 $PID 2>/dev/null; then
+            echo "Process is running (PID: $PID), stopping it."
+            kill $PID || true
+            echo "Smoke test passed: binary launched successfully."
+          else
+            wait $PID 2>/dev/null || true
+            echo "Process exited (headless exit is expected in CI)."
+          fi

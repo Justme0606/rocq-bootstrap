@@ -6,7 +6,9 @@ on:
     branches: [main]
 
 jobs:
-  doctor-linux:
+  # Shell installer test (headless)
+  shell-installer:
+    name: Shell installer (Linux)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,3 +24,93 @@ jobs:
           chmod +x install.sh
           ./install.sh --skip-vscode --workspace /tmp/rocq-ws --recreate-switch
           ./install.sh --doctor --skip-vscode --workspace /tmp/rocq-ws
+
+  # Go vet for all 3 GUI platforms
+  go-vet-linux:
+    name: Go vet (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install Fyne system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl-dev libxxf86vm-dev libxi-dev \
+            libxcursor-dev libxrandr-dev libxinerama-dev
+
+      - name: Go vet
+        working-directory: linux
+        run: go vet ./...
+
+  go-vet-windows:
+    name: Go vet (Windows)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Go vet
+        working-directory: windows
+        run: GOOS=windows go vet ./...
+
+  go-vet-macos:
+    name: Go vet (macOS)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Go vet
+        working-directory: macos
+        run: go vet ./...
+
+  # Manifest validation
+  manifest-check:
+    name: Validate manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate manifest JSON
+        run: python3 -c "import json; m = json.load(open('manifest/latest.json')); assert m['rocq_version'], 'missing rocq_version'; assert m['platform_release'], 'missing platform_release'; print('Manifest OK:', m['rocq_version'], m['platform_release'])"
+
+      - name: Validate manifest has all platform assets
+        run: |
+          python3 -c "
+          import json
+          m = json.load(open('manifest/latest.json'))
+          a = m['assets']
+          assert 'windows' in a and 'x86_64' in a['windows'], 'missing windows asset'
+          assert 'macos' in a and 'arm64' in a['macos'], 'missing macos asset'
+          assert 'linux' in a and 'x86_64' in a['linux'], 'missing linux asset'
+          assert a['linux']['x86_64']['type'] == 'opam', 'linux asset should be opam type'
+          print('All platform assets present')
+          "
+
+  # Template validation
+  templates-check:
+    name: Validate templates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check all required templates exist
+        run: |
+          test -f templates/test.v
+          test -f templates/main.v
+          test -f templates/_RocqProject
+          test -f templates/vscode-settings.json
+          echo "All templates present"
+
+      - name: Check vscode-settings template has placeholder
+        run: grep -q "__VSROCQTOP__" templates/vscode-settings.json

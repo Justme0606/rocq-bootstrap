@@ -26,32 +26,17 @@ jobs:
         with:
           go-version: "1.22"
 
-      - name: Sync assets
+      - name: Go vet
         working-directory: macos
-        run: |
-          cp -f ../manifest/latest.json embedded/manifest/latest.json
-          cp -f ../templates/test.v embedded/templates/test.v
-          cp -f ../templates/main.v embedded/templates/main.v
-          cp -f ../templates/_RocqProject embedded/templates/_RocqProject
-          cp -f ../templates/vscode-settings.json embedded/templates/vscode-settings.json
+        run: go vet ./...
 
-      - name: Install dependencies
+      - name: Build and package DMG
         working-directory: macos
-        run: go mod tidy
-
-      - name: Build binary (arm64)
-        working-directory: macos
-        run: |
-          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
-            go build -ldflags="-s -w -X main.Version=dev" -o rocq-bootstrap ./cmd/rocq-bootstrap/
+        run: make all
 
       - name: Verify Mach-O binary
         working-directory: macos
         run: file rocq-bootstrap | grep -q "Mach-O"
-
-      - name: Create app bundle
-        working-directory: macos
-        run: make app-bundle
 
       - name: Verify app bundle structure
         working-directory: macos
@@ -59,10 +44,6 @@ jobs:
           test -d "Rocq Bootstrap.app/Contents/MacOS"
           test -f "Rocq Bootstrap.app/Contents/MacOS/rocq-bootstrap"
           test -f "Rocq Bootstrap.app/Contents/Info.plist"
-
-      - name: Create DMG
-        working-directory: macos
-        run: make dmg
 
       - name: Verify DMG
         working-directory: macos
@@ -75,13 +56,24 @@ jobs:
             exit 1
           fi
 
+      - name: Test embedded manifest is valid JSON
+        working-directory: macos
+        run: python3 -c "import json; json.load(open('embedded/manifest/latest.json'))"
+
+      - name: Test embedded templates exist
+        working-directory: macos
+        run: |
+          test -f embedded/templates/test.v
+          test -f embedded/templates/main.v
+          test -f embedded/templates/_RocqProject
+          test -f embedded/templates/vscode-settings.json
+
       - name: Smoke test — mount DMG and verify contents
         working-directory: macos
         run: |
           MOUNT_POINT=$(hdiutil attach rocq-bootstrap.dmg -nobrowse | awk '/Volumes\// {for(i=3;i<=NF;i++) printf "%s ", $i; print ""}' | sed 's/ *$//')
           echo "Mounted at: $MOUNT_POINT"
 
-          # Verify .app exists in the DMG
           ls -la "$MOUNT_POINT/"
           test -d "$MOUNT_POINT/Rocq Bootstrap.app"
           test -f "$MOUNT_POINT/Rocq Bootstrap.app/Contents/MacOS/rocq-bootstrap"
@@ -94,8 +86,6 @@ jobs:
         timeout-minutes: 1
         continue-on-error: true
         run: |
-          # The GUI app will fail to create a window in headless CI,
-          # but we verify it loads and doesn't crash on missing libraries.
           ./rocq-bootstrap &
           PID=$!
           sleep 3

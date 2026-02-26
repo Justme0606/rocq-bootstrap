@@ -67,5 +67,8 @@ macos/rocq-bootstrap-*
 macos/*.app/
 macos/*.dmg
 
+# Linux build artifacts
+linux/rocq-bootstrap
+
 # SHA256 computation cache
 .sha256_cache/

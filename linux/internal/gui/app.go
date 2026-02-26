@@ -17,9 +17,9 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
-	"github.com/justme0606/rocq-bootstrap/windows/internal/doctor"
-	"github.com/justme0606/rocq-bootstrap/windows/internal/installer"
-	"github.com/justme0606/rocq-bootstrap/windows/internal/manifest"
+	"github.com/justme0606/rocq-bootstrap/linux/internal/doctor"
+	"github.com/justme0606/rocq-bootstrap/linux/internal/installer"
+	"github.com/justme0606/rocq-bootstrap/linux/internal/manifest"
 )
 
 const vscodeDownloadURL = "https://code.visualstudio.com/Download"
@@ -151,19 +151,19 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 	installBtn = widget.NewButtonWithIcon("Install", theme.DownloadIcon(), func() {
 		installBtn.Disable()
 
-		existingDirs := installer.FindExistingInstallations()
-		if len(existingDirs) > 0 {
-			for _, dir := range existingDirs {
-				logP.append(fmt.Sprintf("Existing Rocq Platform detected: %s", dir))
+		existingSwitches := installer.FindExistingInstallations()
+		if len(existingSwitches) > 0 {
+			for _, sw := range existingSwitches {
+				logP.append(fmt.Sprintf("Existing opam switch detected: %s", sw))
 			}
 
-			msg := widget.NewLabel("Existing Rocq Platform installations were found.\nSelect one to reuse, or install a new one:")
+			msg := widget.NewLabel("Existing opam switches were found.\nSelect one to reuse, or install a new switch:")
 			msg.Wrapping = fyne.TextWrapWord
 
-			newInstallLabel := fmt.Sprintf("Install new (%s)", installer.DefaultInstallDir(m.RocqVersion, m.PlatformRelease))
-			options := append(existingDirs, newInstallLabel)
+			newSwitchLabel := fmt.Sprintf("Install new (%s)", installer.SwitchName(m.RocqVersion, m.PlatformRelease))
+			options := append(existingSwitches, newSwitchLabel)
 			radio := widget.NewRadioGroup(options, nil)
-			radio.SetSelected(existingDirs[0])
+			radio.SetSelected(existingSwitches[0])
 
 			radioScroll := container.NewScroll(radio)
 			radioScroll.SetMinSize(fyne.NewSize(400, 200))
@@ -184,19 +184,19 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 			confirmBtn.OnTapped = func() {
 				d.Hide()
 				selected := radio.Selected
-				if selected == newInstallLabel {
+				if selected == newSwitchLabel {
 					logP.append("Starting fresh installation...")
-					go runInstallWithOptions(w, m, templates, statusLabel, progressBar, stepLabel, installBtn, logP, "", false)
+					go runInstallWithOptions(w, m, templates, statusLabel, progressBar, stepLabel, installBtn, logP, false)
 				} else {
-					logP.append(fmt.Sprintf("Reusing installation at %s...", selected))
-					go runInstallWithOptions(w, m, templates, statusLabel, progressBar, stepLabel, installBtn, logP, selected, true)
+					logP.append(fmt.Sprintf("Reusing switch %s...", selected))
+					go runInstallWithOptions(w, m, templates, statusLabel, progressBar, stepLabel, installBtn, logP, true)
 				}
 			}
 
 			d.Show()
 		} else {
 			logP.append("Starting installation...")
-			go runInstallWithOptions(w, m, templates, statusLabel, progressBar, stepLabel, installBtn, logP, "", false)
+			go runInstallWithOptions(w, m, templates, statusLabel, progressBar, stepLabel, installBtn, logP, false)
 		}
 	})
 	installBtn.Importance = widget.HighImportance
@@ -265,7 +265,7 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 func runInstallWithOptions(w fyne.Window, m *manifest.Manifest, templates fs.FS,
 	statusLabel *widget.Label, progressBar *widget.ProgressBar,
 	stepLabel *widget.Label, installBtn *widget.Button, logP *logPanel,
-	existingDir string, skipInstall bool) {
+	skipInstall bool) {
 
 	logger, err := installer.NewLogger()
 	if err != nil {
@@ -275,16 +275,12 @@ func runInstallWithOptions(w fyne.Window, m *manifest.Manifest, templates fs.FS,
 		defer logger.Close()
 	}
 
-	installDir := installer.DefaultInstallDir(m.RocqVersion, m.PlatformRelease)
-	if skipInstall && existingDir != "" {
-		installDir = existingDir
-	}
+	switchName := installer.SwitchName(m.RocqVersion, m.PlatformRelease)
 
 	var lastLoggedStep int
 	cfg := &installer.Config{
 		Manifest:    m,
 		Templates:   templates,
-		InstallDir:  installDir,
 		SkipInstall: skipInstall,
 		Logger:      logger,
 		OnStep: func(step int, label string, fraction float64) {
@@ -315,7 +311,8 @@ func runInstallWithOptions(w fyne.Window, m *manifest.Manifest, templates fs.FS,
 		statusLabel.SetText("Rocq Platform installed — VSCode not found")
 		logP.append("Rocq Platform installed successfully.")
 		logP.append("VSCode was not found. Install VSCode then re-run this installer to configure the workspace.")
-		logP.append(fmt.Sprintf("Install directory: %s", result.InstallDir))
+		logP.append(fmt.Sprintf("Opam switch: %s", switchName))
+		logP.append("Activate with: source ~/rocq-workspace/activate.sh")
 
 		showVSCodeDialog(w)
 		return
@@ -323,13 +320,15 @@ func runInstallWithOptions(w fyne.Window, m *manifest.Manifest, templates fs.FS,
 
 	statusLabel.SetText("Installation complete!")
 	logP.append("Installation complete!")
-	logP.append(fmt.Sprintf("Install directory: %s", result.InstallDir))
-	logP.append(fmt.Sprintf("Workspace: %%USERPROFILE%%\\%s", installer.WorkspaceName))
+	logP.append(fmt.Sprintf("Opam switch: %s", switchName))
+	logP.append(fmt.Sprintf("Workspace: ~/%s", installer.WorkspaceName))
+	logP.append("Activate with: source ~/rocq-workspace/activate.sh")
 
 	successMsg := widget.NewLabel(
 		"Rocq Platform has been installed successfully.\n\n" +
-			fmt.Sprintf("Install directory: %s\n", result.InstallDir) +
-			fmt.Sprintf("Workspace: %%USERPROFILE%%\\%s", installer.WorkspaceName))
+			fmt.Sprintf("Opam switch: %s\n", switchName) +
+			fmt.Sprintf("Workspace: ~/%s\n\n", installer.WorkspaceName) +
+			"Activate with:\n  source ~/rocq-workspace/activate.sh")
 	successMsg.Wrapping = fyne.TextWrapWord
 
 	okBtn := widget.NewButton("OK", nil)

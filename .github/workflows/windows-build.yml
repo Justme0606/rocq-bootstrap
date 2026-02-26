@@ -29,6 +29,10 @@ jobs:
       - name: Install mingw-w64
         run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64
 
+      - name: Go vet
+        working-directory: windows
+        run: GOOS=windows go vet ./...
+
       - name: Build rocq-bootstrap.exe
         working-directory: windows
         run: make all
@@ -36,6 +40,18 @@ jobs:
       - name: Verify PE32+ executable
         working-directory: windows
         run: file rocq-bootstrap.exe | grep -q "PE32+ executable (GUI) x86-64"
+
+      - name: Test embedded manifest is valid JSON
+        working-directory: windows
+        run: python3 -c "import json; json.load(open('embedded/manifest/latest.json'))"
+
+      - name: Test embedded templates exist
+        working-directory: windows
+        run: |
+          test -f embedded/templates/test.v
+          test -f embedded/templates/main.v
+          test -f embedded/templates/_RocqProject
+          test -f embedded/templates/vscode-settings.json
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -48,19 +64,16 @@ jobs:
     needs: build-linux-cross
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-
       - uses: actions/download-artifact@v4
         with:
           name: rocq-bootstrap-exe
-          path: windows
+          path: .
 
       - name: Verify exe exists and is valid
         shell: pwsh
         run: |
-          $exe = "windows\rocq-bootstrap.exe"
-          if (!(Test-Path $exe)) { throw "rocq-bootstrap.exe not found" }
-          $size = (Get-Item $exe).Length
+          if (!(Test-Path "rocq-bootstrap.exe")) { throw "rocq-bootstrap.exe not found" }
+          $size = (Get-Item "rocq-bootstrap.exe").Length
           Write-Host "rocq-bootstrap.exe size: $size bytes"
           if ($size -lt 1MB) { throw "exe seems too small ($size bytes)" }
 
@@ -69,9 +82,7 @@ jobs:
         timeout-minutes: 1
         continue-on-error: true
         run: |
-          # The GUI exe will fail to create a window in headless CI,
-          # but we verify it loads and doesn't crash on missing DLLs.
-          $proc = Start-Process -FilePath "windows\rocq-bootstrap.exe" -PassThru -NoNewWindow
+          $proc = Start-Process -FilePath ".\rocq-bootstrap.exe" -PassThru -NoNewWindow
           Start-Sleep -Seconds 5
           if (!$proc.HasExited) {
             Write-Host "Process is running (PID: $($proc.Id)), stopping it."
@@ -98,7 +109,14 @@ jobs:
         run: |
           cp -f ../manifest/latest.json embedded/manifest/latest.json
           cp -f ../templates/test.v embedded/templates/test.v
+          cp -f ../templates/main.v embedded/templates/main.v
+          cp -f ../templates/_RocqProject embedded/templates/_RocqProject
           cp -f ../templates/vscode-settings.json embedded/templates/vscode-settings.json
+
+      - name: Go vet
+        shell: bash
+        working-directory: windows
+        run: go vet ./...
 
       - name: Build natively
         shell: bash
