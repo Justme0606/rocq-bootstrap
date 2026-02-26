@@ -11,6 +11,8 @@ import (
 	"github.com/justme0606/rocq-bootstrap/windows/internal/manifest"
 )
 
+var Version = "dev"
+
 func main() {
 	// Early log file to capture errors before GUI starts
 	earlyLog := setupEarlyLog()
@@ -35,7 +37,7 @@ func main() {
 		fmt.Fprintf(earlyLog, "[%s] launching GUI\n", time.Now().Format("15:04:05"))
 	}
 
-	gui.Run(m, rootfs.EmbeddedTemplates, rootfs.EmbeddedIcon)
+	gui.Run(m, rootfs.EmbeddedTemplates, rootfs.EmbeddedIcon, Version)
 }
 
 func setupEarlyLog() *os.File {

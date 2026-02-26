@@ -13,7 +13,8 @@ TEMPLATES   = $(REPO_ROOT)/templates
 RC_FILE     = $(SRC_DIR)/app.rc
 SYSO_FILE   = $(SRC_DIR)/app_windows_amd64.syso
 
-LDFLAGS     = -H windowsgui -s -w
+VERSION     ?= dev
+LDFLAGS     = -H windowsgui -s -w -X main.Version=$(VERSION)
 
 .PHONY: all debug clean sync-assets
 
@@ -38,7 +39,7 @@ $(BINARY): sync-assets $(SYSO_FILE)
 # Debug build: shows console window for error output
 debug: sync-assets $(SYSO_FILE)
 	CGO_ENABLED=1 CC=$(CC_WINDOWS) GOOS=windows GOARCH=amd64 \
-		$(GO) build -ldflags="-s -w" -o rocq-bootstrap-debug.exe $(SRC_DIR)
+		$(GO) build -ldflags="-s -w -X main.Version=$(VERSION)" -o rocq-bootstrap-debug.exe $(SRC_DIR)
 
 clean:
 	rm -f $(BINARY) rocq-bootstrap-debug.exe $(SYSO_FILE)

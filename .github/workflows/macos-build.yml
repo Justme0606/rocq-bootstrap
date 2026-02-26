@@ -43,7 +43,7 @@ jobs:
         working-directory: macos
         run: |
           CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
-            go build -ldflags="-s -w" -o rocq-bootstrap ./cmd/rocq-bootstrap/
+            go build -ldflags="-s -w -X main.Version=dev" -o rocq-bootstrap ./cmd/rocq-bootstrap/
 
       - name: Verify Mach-O binary
         working-directory: macos

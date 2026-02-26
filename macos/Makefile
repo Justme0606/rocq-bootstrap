@@ -12,7 +12,8 @@ APP_NAME    = Rocq Bootstrap.app
 BUNDLE_ID   = org.rocq-prover.rocq-bootstrap
 DMG_NAME    = rocq-bootstrap.dmg
 
-LDFLAGS     = -s -w
+VERSION     ?= dev
+LDFLAGS     = -s -w -X main.Version=$(VERSION)
 
 .PHONY: all debug clean sync-assets app-bundle dmg
 
@@ -33,7 +34,7 @@ $(BINARY): sync-assets
 # Debug build: keeps symbols for debugging
 debug: sync-assets
 	CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
-		$(GO) build -o $(BINARY)-debug $(SRC_DIR)
+		$(GO) build -ldflags="-X main.Version=$(VERSION)" -o $(BINARY)-debug $(SRC_DIR)
 
 # Create macOS .app bundle
 app-bundle: $(BINARY)
@@ -43,6 +44,10 @@ app-bundle: $(BINARY)
 	mkdir -p "$(APP_NAME)/Contents/Resources"
 	cp $(BINARY) "$(APP_NAME)/Contents/MacOS/$(BINARY)"
 	cp Info.plist "$(APP_NAME)/Contents/Info.plist"
+	@if [ "$(VERSION)" != "dev" ]; then \
+		sed -i.bak 's|<string>1.0.0</string>|<string>$(VERSION)</string>|' "$(APP_NAME)/Contents/Info.plist"; \
+		rm -f "$(APP_NAME)/Contents/Info.plist.bak"; \
+	fi
 	@# Convert PNG to icns if sips is available, otherwise use PNG directly
 	@if command -v sips >/dev/null 2>&1 && command -v iconutil >/dev/null 2>&1; then \
 		echo "  Creating .icns from PNG..."; \
