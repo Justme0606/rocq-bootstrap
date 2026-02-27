@@ -6,44 +6,51 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/justme0606/rocq-bootstrap/macos/internal/vscode"
 )
 
-// FindVsrocqtop searches for the vsrocqtop binary.
+// FindLanguageServerTop searches for the vsrocqtop or vscoqtop binary depending on the version.
 // Search order:
 // 1. Inside the installed .app bundle (Contents/ walk, max depth 6)
 // 2. exec.LookPath
 // 3. Known paths: /usr/local/bin, /opt/homebrew/bin
 // 4. Scan /Applications and ~/Applications for *rocq*.app / *coq*.app
-func FindVsrocqtop(installedAppPath string) (string, error) {
-	debugLog("[vsrocqtop] searching for vsrocqtop")
+func FindLanguageServerTop(installedAppPath, rocqVersion string) (string, error) {
+	binName := "vsrocqtop"
+	if vscode.IsCoq(rocqVersion) {
+		binName = "vscoqtop"
+	}
+
+	debugLog("[%s] searching for %s", binName, binName)
 
 	// 1. Search inside the installed .app bundle
 	if installedAppPath != "" {
 		contentsDir := filepath.Join(installedAppPath, "Contents")
 		if info, err := os.Stat(contentsDir); err == nil && info.IsDir() {
-			debugLog("[vsrocqtop] searching in %s (max depth 6)", contentsDir)
-			found := walkForVsrocqtop(contentsDir, 6)
+			debugLog("[%s] searching in %s (max depth 6)", binName, contentsDir)
+			found := walkForBinary(contentsDir, binName, 6)
 			if found != "" {
-				debugLog("[vsrocqtop] FOUND in app bundle: %s", found)
+				debugLog("[%s] FOUND in app bundle: %s", binName, found)
 				return found, nil
 			}
 		}
 	}
 
 	// 2. PATH lookup
-	if path, err := exec.LookPath("vsrocqtop"); err == nil {
-		debugLog("[vsrocqtop] FOUND in PATH: %s", path)
+	if path, err := exec.LookPath(binName); err == nil {
+		debugLog("[%s] FOUND in PATH: %s", binName, path)
 		return path, nil
 	}
 
 	// 3. Known paths
 	knownPaths := []string{
-		"/usr/local/bin/vsrocqtop",
-		"/opt/homebrew/bin/vsrocqtop",
+		"/usr/local/bin/" + binName,
+		"/opt/homebrew/bin/" + binName,
 	}
 	for _, p := range knownPaths {
 		if info, err := os.Stat(p); err == nil && !info.IsDir() {
-			debugLog("[vsrocqtop] FOUND at known path: %s", p)
+			debugLog("[%s] FOUND at known path: %s", binName, p)
 			return p, nil
 		}
 	}
@@ -70,21 +77,21 @@ func FindVsrocqtop(installedAppPath string) (string, error) {
 			}
 			appContents := filepath.Join(baseDir, e.Name(), "Contents")
 			if info, err := os.Stat(appContents); err == nil && info.IsDir() {
-				found := walkForVsrocqtop(appContents, 6)
+				found := walkForBinary(appContents, binName, 6)
 				if found != "" {
-					debugLog("[vsrocqtop] FOUND in app scan: %s", found)
+					debugLog("[%s] FOUND in app scan: %s", binName, found)
 					return found, nil
 				}
 			}
 		}
 	}
 
-	debugLog("[vsrocqtop] NOT FOUND")
-	return "", fmt.Errorf("vsrocqtop not found")
+	debugLog("[%s] NOT FOUND", binName)
+	return "", fmt.Errorf("%s not found", binName)
 }
 
-// walkForVsrocqtop walks a directory tree up to maxDepth levels looking for vsrocqtop.
-func walkForVsrocqtop(root string, maxDepth int) string {
+// walkForBinary walks a directory tree up to maxDepth levels looking for the named binary.
+func walkForBinary(root, binName string, maxDepth int) string {
 	var found string
 	rootDepth := strings.Count(root, string(os.PathSeparator))
 
@@ -102,7 +109,7 @@ func walkForVsrocqtop(root string, maxDepth int) string {
 			return nil
 		}
 
-		if !info.IsDir() && info.Name() == "vsrocqtop" {
+		if !info.IsDir() && info.Name() == binName {
 			// Verify it's executable
 			if info.Mode()&0o111 != 0 {
 				found = path

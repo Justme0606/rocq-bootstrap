@@ -25,7 +25,6 @@ sync-assets:
 	cp -f $(TEMPLATES)/test.v embedded/templates/test.v
 	cp -f $(TEMPLATES)/main.v embedded/templates/main.v
 	cp -f $(TEMPLATES)/_RocqProject embedded/templates/_RocqProject
-	cp -f $(TEMPLATES)/vscode-settings.json embedded/templates/vscode-settings.json
 
 $(BINARY): sync-assets
 	CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \

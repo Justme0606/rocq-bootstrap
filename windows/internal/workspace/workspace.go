@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // Create creates the workspace directory with template files.
@@ -50,17 +49,11 @@ func Create(workspaceDir string, templates fs.FS) error {
 	return nil
 }
 
-// WriteVSCodeSettings writes .vscode/settings.json with the vsrocqtop path.
-func WriteVSCodeSettings(workspaceDir, vsrocqtopPath string, templates fs.FS) error {
-	log.Printf("[workspace] writing VSCode settings with vsrocqtop=%s", vsrocqtopPath)
+// WriteVSCodeSettings writes .vscode/settings.json with the language server path.
+func WriteVSCodeSettings(workspaceDir, settingsKey, topPath string) error {
+	log.Printf("[workspace] writing VSCode settings with %s=%s", settingsKey, topPath)
 
-	tpl, err := fs.ReadFile(templates, "embedded/templates/vscode-settings.json")
-	if err != nil {
-		log.Printf("[workspace]   ERROR reading settings template: %v", err)
-		return fmt.Errorf("read settings template: %w", err)
-	}
-
-	content := strings.ReplaceAll(string(tpl), "__VSROCQTOP__", vsrocqtopPath)
+	content := fmt.Sprintf("{\n  \"%s\": \"%s\"\n}\n", settingsKey, topPath)
 
 	dest := filepath.Join(workspaceDir, ".vscode", "settings.json")
 	if err := os.WriteFile(dest, []byte(content), 0o644); err != nil {

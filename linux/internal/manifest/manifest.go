@@ -38,13 +38,8 @@ type Manifest struct {
 	Assets          Assets `json:"assets"`
 }
 
-// Load reads and parses the manifest from an embedded filesystem.
-func Load(fsys fs.FS, path string) (*Manifest, error) {
-	data, err := fs.ReadFile(fsys, path)
-	if err != nil {
-		return nil, fmt.Errorf("read manifest: %w", err)
-	}
-
+// Parse parses a manifest from raw JSON bytes.
+func Parse(data []byte) (*Manifest, error) {
 	var m Manifest
 	if err := json.Unmarshal(data, &m); err != nil {
 		return nil, fmt.Errorf("parse manifest: %w", err)
@@ -55,4 +50,14 @@ func Load(fsys fs.FS, path string) (*Manifest, error) {
 	}
 
 	return &m, nil
+}
+
+// Load reads and parses the manifest from an embedded filesystem.
+func Load(fsys fs.FS, path string) (*Manifest, error) {
+	data, err := fs.ReadFile(fsys, path)
+	if err != nil {
+		return nil, fmt.Errorf("read manifest: %w", err)
+	}
+
+	return Parse(data)
 }

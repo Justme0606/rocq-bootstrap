@@ -4,28 +4,33 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/justme0606/rocq-bootstrap/windows/internal/vscode"
 )
 
-// vsrocqtopNames lists the binary names to search for.
-var vsrocqtopNames = []string{"vsrocqtop", "vsrocqtop.exe"}
-
-// FindVsrocqtop searches for vsrocqtop in the installation directory.
+// FindLanguageServerTop searches for vsrocqtop or vscoqtop in the installation directory.
 // It first checks <installDir>/bin/, then searches recursively.
-func FindVsrocqtop(installDir string) (string, error) {
-	debugLog("[vsrocqtop] searching in %s", installDir)
+func FindLanguageServerTop(installDir, rocqVersion string) (string, error) {
+	binBase := "vsrocqtop"
+	if vscode.IsCoq(rocqVersion) {
+		binBase = "vscoqtop"
+	}
+	names := []string{binBase, binBase + ".exe"}
+
+	debugLog("[%s] searching in %s", binBase, installDir)
 
 	// Check the expected locations first
-	for _, name := range vsrocqtopNames {
+	for _, name := range names {
 		direct := filepath.Join(installDir, "bin", name)
-		debugLog("[vsrocqtop] checking %s", direct)
+		debugLog("[%s] checking %s", binBase, direct)
 		if info, err := os.Stat(direct); err == nil && !info.IsDir() {
-			debugLog("[vsrocqtop] FOUND at %s", direct)
+			debugLog("[%s] FOUND at %s", binBase, direct)
 			return direct, nil
 		}
 	}
 
 	// Recursive search
-	debugLog("[vsrocqtop] not in bin/, starting recursive search...")
+	debugLog("[%s] not in bin/, starting recursive search...", binBase)
 	var found string
 	err := filepath.Walk(installDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -33,7 +38,7 @@ func FindVsrocqtop(installDir string) (string, error) {
 		}
 		if !info.IsDir() {
 			name := info.Name()
-			if name == "vsrocqtop" || name == "vsrocqtop.exe" {
+			if name == binBase || name == binBase+".exe" {
 				found = path
 				return filepath.SkipAll
 			}
@@ -41,15 +46,15 @@ func FindVsrocqtop(installDir string) (string, error) {
 		return nil
 	})
 	if err != nil {
-		debugLog("[vsrocqtop] walk error: %v", err)
-		return "", fmt.Errorf("search vsrocqtop: %w", err)
+		debugLog("[%s] walk error: %v", binBase, err)
+		return "", fmt.Errorf("search %s: %w", binBase, err)
 	}
 
 	if found == "" {
-		debugLog("[vsrocqtop] NOT FOUND anywhere in %s", installDir)
-		return "", fmt.Errorf("vsrocqtop not found in %s", installDir)
+		debugLog("[%s] NOT FOUND anywhere in %s", binBase, installDir)
+		return "", fmt.Errorf("%s not found in %s", binBase, installDir)
 	}
 
-	debugLog("[vsrocqtop] FOUND at %s", found)
+	debugLog("[%s] FOUND at %s", binBase, found)
 	return found, nil
 }

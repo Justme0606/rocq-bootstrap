@@ -55,11 +55,15 @@ ensure_vsrocq_extension() {
 configure_vsrocq_settings() {
   [[ "$SKIP_VSCODE" -eq 1 ]] && return 0
 
-  local tpl="$SCRIPT_DIR/templates/vscode-settings.json"
   local out="$WORKSPACE_DIR/.vscode/settings.json"
 
   [[ -n "${VSROCQTOP_PATH:-}" ]] || die "VSROCQTOP_PATH is empty (cannot configure VSCode)"
 
-  sed "s|__VSROCQTOP__|$VSROCQTOP_PATH|g" "$tpl" > "$out"
+  local settings_key="vsrocq.path"
+  if [[ "${VSROCQTOP_PATH}" == *vscoqtop* ]]; then
+    settings_key="vscoq.path"
+  fi
+
+  printf '{\n  "%s": "%s"\n}\n' "$settings_key" "$VSROCQTOP_PATH" > "$out"
   log "Wrote VSCode workspace settings: $out"
 }

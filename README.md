@@ -11,7 +11,11 @@
 
 **rocq-bootstrap** is a cross-platform installation and environment bootstrap
 tool designed to provide a reproducible and version-aligned development
-environment for the Rocq Platform.
+environment for the Rocq Platform (formerly Coq).
+
+It supports both **Rocq** (version 9+) and **Coq** (version < 9) releases,
+automatically selecting the correct packages, extensions, and binaries
+depending on the chosen release.
 
 This project aims to simplify deployment for:
 
@@ -34,7 +38,7 @@ The tool provides:
 - Strict version pinning across the Rocq stack
 - Official repository prioritisation
 - Automated workspace generation
-- VSCode integration
+- VSCode integration (VSRocq for Rocq 9+, VSCoq for Coq < 9)
 - CLI validation of the installed toolchain
 
 The design favours clarity, reproducibility and minimal manual
@@ -56,10 +60,11 @@ methods are available:
 - Creates a dedicated opam switch following Rocq Platform naming
   conventions
 - Configures the official Rocq opam repository
-- Installs all Rocq packages with version pinning
+- Installs all Rocq/Coq packages with version pinning
 - Creates a workspace with activation scripts (`activate.sh`,
   `activate-shell.sh`)
-- Installs the VSRocq extension in VSCode and opens the workspace
+- Installs the appropriate VSCode extension (VSRocq for Rocq 9+,
+  VSCoq for Coq < 9) and opens the workspace
 
 The GUI displays real-time progress and includes a Doctor diagnostic
 button.
@@ -76,7 +81,9 @@ Both methods:
 
       https://rocq-prover.org/opam/released
 
-- Install a fully aligned Rocq stack:
+- Install a fully aligned package stack depending on the version:
+
+  **Rocq 9+:**
   - `rocq-runtime=<version>`
   - `rocq-core=<version>`
   - `rocq-stdlib=<version>`
@@ -84,7 +91,12 @@ Both methods:
   - `rocqide=<version>` (optional)
   - `vsrocq-language-server`
 
-All core packages are strictly pinned to the requested Rocq version.
+  **Coq < 9:**
+  - `coq=<version>`
+  - `coqide=<version>` (optional)
+  - `vscoq-language-server`
+
+All core packages are strictly pinned to the requested version.
 
 ---
 
@@ -95,7 +107,8 @@ On macOS systems, the installer:
 - Resolves the appropriate signed Rocq Platform release asset
 - Downloads the official signed installer
 - Installs the application bundle
-- Locates `vsrocqtop`
+- Locates the language server binary (`vsrocqtop` for Rocq 9+,
+  `vscoqtop` for Coq < 9)
 - Configures a ready-to-use workspace
 
 Only signed release artifacts are accepted.
@@ -110,8 +123,8 @@ the entire setup:
 - Downloads the official signed Rocq Platform InnoSetup installer
 - Verifies SHA256 checksum
 - Runs the InnoSetup installer silently
-- Locates `vsrocqtop` in the installation directory
-- Installs the VSRocq extension in VSCode
+- Locates the language server binary (`vsrocqtop` or `vscoqtop`)
+- Installs the appropriate VSCode extension (VSRocq or VSCoq)
 - Creates a ready-to-use workspace in `%USERPROFILE%\rocq-workspace`
 - Configures VSCode settings and opens the workspace
 
@@ -298,8 +311,9 @@ The installer generates:
 
 The workspace is configured to:
 
-- Use the installed `vsrocqtop`
-- Open directly in VSCode
+- Use the installed language server (`vsrocqtop` or `vscoqtop`)
+- Open directly in VSCode with the correct extension settings
+  (`vsrocq.path` or `vscoq.path`)
 - Compile a minimal validation file
 
 ---

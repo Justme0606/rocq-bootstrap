@@ -327,15 +327,19 @@ func Run(cfg *Config) (*Result, error) {
 		cfg.OnStep(3, "Rocq Platform installed.", 1.0)
 	}
 
-	// Step 4: Find vsrocqtop
-	cfg.OnStep(4, "Locating vsrocqtop...", 0.0)
-	vsrocqtopPath, err := FindVsrocqtop(installDir)
+	// Step 4: Find language server binary
+	topBinLabel := "vsrocqtop"
+	if vscode.IsCoq(cfg.Manifest.RocqVersion) {
+		topBinLabel = "vscoqtop"
+	}
+	cfg.OnStep(4, fmt.Sprintf("Locating %s...", topBinLabel), 0.0)
+	vsrocqtopPath, err := FindLanguageServerTop(installDir, cfg.Manifest.RocqVersion)
 	if err != nil {
-		cfg.Logger.Log("WARNING: vsrocqtop not found: %v", err)
-		cfg.OnStep(4, "vsrocqtop not found (will skip VSCode settings).", 1.0)
+		cfg.Logger.Log("WARNING: %s not found: %v", topBinLabel, err)
+		cfg.OnStep(4, fmt.Sprintf("%s not found (will skip VSCode settings).", topBinLabel), 1.0)
 	} else {
-		cfg.Logger.Log("Found vsrocqtop: %s", vsrocqtopPath)
-		cfg.OnStep(4, "Found vsrocqtop.", 1.0)
+		cfg.Logger.Log("Found %s: %s", topBinLabel, vsrocqtopPath)
+		cfg.OnStep(4, fmt.Sprintf("Found %s.", topBinLabel), 1.0)
 	}
 
 	// Step 5: Check for VSCode
@@ -353,7 +357,8 @@ func Run(cfg *Config) (*Result, error) {
 
 	// VSCode found — install extension
 	cfg.Logger.Log("VSCode CLI: %s", codeBin)
-	if err := vscode.InstallExtension(codeBin); err != nil {
+	extensionID := vscode.ExtensionIDForVersion(cfg.Manifest.RocqVersion)
+	if err := vscode.InstallExtension(codeBin, extensionID); err != nil {
 		cfg.Logger.Log("WARNING: extension install failed: %v", err)
 	}
 	cfg.OnStep(5, "VSCode extension installed.", 1.0)
@@ -370,15 +375,19 @@ func Run(cfg *Config) (*Result, error) {
 	// Step 7: Configure VSCode settings and open workspace
 	cfg.OnStep(7, "Configuring VSCode...", 0.0)
 	if vsrocqtopPath != "" {
-		// Strip .exe extension — vsrocq settings expect the path without it
-		vsrocqtopClean := strings.TrimSuffix(vsrocqtopPath, ".exe")
-		vsrocqtopForward := filepath.ToSlash(vsrocqtopClean)
-		if err := workspace.WriteVSCodeSettings(workspaceDir, vsrocqtopForward, cfg.Templates); err != nil {
+		// Strip .exe extension — settings expect the path without it
+		topClean := strings.TrimSuffix(vsrocqtopPath, ".exe")
+		topForward := filepath.ToSlash(topClean)
+		settingsKey := "vsrocq.path"
+		if vscode.IsCoq(cfg.Manifest.RocqVersion) {
+			settingsKey = "vscoq.path"
+		}
+		if err := workspace.WriteVSCodeSettings(workspaceDir, settingsKey, topForward); err != nil {
 			return nil, fmt.Errorf("vscode config: %w", err)
 		}
-		cfg.Logger.Log("VSCode settings written with vsrocqtop=%s", vsrocqtopPath)
+		cfg.Logger.Log("VSCode settings written with %s=%s", settingsKey, vsrocqtopPath)
 	} else {
-		cfg.Logger.Log("Skipping VSCode settings (vsrocqtop not found)")
+		cfg.Logger.Log("Skipping VSCode settings (%s not found)", topBinLabel)
 	}
 
 	// Open VSCode with the workspace

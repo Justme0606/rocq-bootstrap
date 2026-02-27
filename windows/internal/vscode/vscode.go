@@ -3,10 +3,33 @@ package vscode
 import (
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
-const ExtensionID = "rocq-prover.vsrocq"
+const (
+	RocqExtensionID = "rocq-prover.vsrocq"
+	CoqExtensionID  = "coq-community.vscoq"
+)
+
+// IsCoq returns true if the version refers to a Coq release (major version < 9).
+func IsCoq(version string) bool {
+	parts := strings.SplitN(version, ".", 2)
+	if len(parts) > 0 {
+		if major, err := strconv.Atoi(parts[0]); err == nil && major < 9 {
+			return true
+		}
+	}
+	return false
+}
+
+// ExtensionIDForVersion returns the appropriate VSCode extension ID for the given version.
+func ExtensionIDForVersion(rocqVersion string) string {
+	if IsCoq(rocqVersion) {
+		return CoqExtensionID
+	}
+	return RocqExtensionID
+}
 
 // FindCode searches for the VSCode CLI executable.
 func FindCode() (string, error) {
@@ -30,19 +53,19 @@ func FindCode() (string, error) {
 	return "", fmt.Errorf("VSCode (code) not found in PATH or common locations")
 }
 
-// InstallExtension installs the vsrocq extension if not already present.
-func InstallExtension(codeBin string) error {
+// InstallExtension installs the given VSCode extension if not already present.
+func InstallExtension(codeBin, extensionID string) error {
 	// Check if already installed
 	out, err := exec.Command(codeBin, "--list-extensions").Output()
 	if err == nil {
 		for _, line := range strings.Split(string(out), "\n") {
-			if strings.EqualFold(strings.TrimSpace(line), ExtensionID) {
+			if strings.EqualFold(strings.TrimSpace(line), extensionID) {
 				return nil // already installed
 			}
 		}
 	}
 
-	cmd := exec.Command(codeBin, "--install-extension", ExtensionID)
+	cmd := exec.Command(codeBin, "--install-extension", extensionID)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("install extension: %w\nOutput: %s", err, string(output))
