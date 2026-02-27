@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/justme0606/rocq-bootstrap/linux/internal/doctor"
 	"github.com/justme0606/rocq-bootstrap/linux/internal/installer"
 	"github.com/justme0606/rocq-bootstrap/linux/internal/manifest"
+	"github.com/justme0606/rocq-bootstrap/linux/internal/releases"
 )
 
 const vscodeDownloadURL = "https://code.visualstudio.com/Download"
@@ -92,14 +94,7 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 
 	titleRow := container.NewHBox(titleRocq, titleRest)
 
-	versionText := fmt.Sprintf("Rocq %s  —  Release %s", m.RocqVersion, m.PlatformRelease)
-	if version != "" && version != "dev" {
-		versionText += "  —  " + version
-	}
-	versionLabel := canvas.NewText(versionText, rocqMutedText)
-	versionLabel.TextSize = 13
-
-	titleBlock := container.NewVBox(titleRow, versionLabel)
+	titleBlock := container.NewVBox(titleRow)
 
 	var header *fyne.Container
 	if headerIcon != nil {
@@ -109,6 +104,52 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 	}
 
 	headerSep := widget.NewSeparator()
+
+	// --- Release selector ---
+	currentManifest := m
+
+	releaseSelect := widget.NewSelect([]string{m.PlatformRelease}, func(selected string) {})
+	releaseSelect.Selected = m.PlatformRelease
+
+	releaseLabel := widget.NewLabelWithStyle("Release:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	rocqVersionLabel := widget.NewLabel(versionDisplayName(m.RocqVersion))
+	releaseRow := container.NewBorder(nil, nil, releaseLabel, rocqVersionLabel, releaseSelect)
+
+	// Fetch available releases in background and update Rocq version for current tag
+	go func() {
+		tags, err := releases.FetchReleases()
+		if err != nil {
+			return
+		}
+		if len(tags) > 0 {
+			releaseSelect.Options = tags
+			releaseSelect.Refresh()
+		}
+		// Fetch actual Rocq version for the initially selected release
+		newManifest, err := releases.FetchManifestForTag(currentManifest.PlatformRelease)
+		if err != nil {
+			return
+		}
+		currentManifest = newManifest
+		rocqVersionLabel.SetText(versionDisplayName(currentManifest.RocqVersion))
+	}()
+
+	releaseSelect.OnChanged = func(selected string) {
+		if selected == currentManifest.PlatformRelease {
+			return
+		}
+		releaseSelect.Disable()
+		go func() {
+			newManifest, err := releases.FetchManifestForTag(selected)
+			if err != nil {
+				releaseSelect.Enable()
+				return
+			}
+			currentManifest = newManifest
+			rocqVersionLabel.SetText(versionDisplayName(currentManifest.RocqVersion))
+			releaseSelect.Enable()
+		}()
+	}
 
 	// --- Progress section ---
 	statusLabel := widget.NewLabel("Ready to install")
@@ -150,6 +191,7 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 	var installBtn *widget.Button
 	installBtn = widget.NewButtonWithIcon("Install", theme.DownloadIcon(), func() {
 		installBtn.Disable()
+		releaseSelect.Disable()
 
 		existingSwitches := installer.FindExistingInstallations()
 		if len(existingSwitches) > 0 {
@@ -160,7 +202,7 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 			msg := widget.NewLabel("Existing opam switches were found.\nSelect one to reuse, or install a new switch:")
 			msg.Wrapping = fyne.TextWrapWord
 
-			newSwitchLabel := fmt.Sprintf("Install new (%s)", installer.SwitchName(m.RocqVersion, m.PlatformRelease))
+			newSwitchLabel := fmt.Sprintf("Install new (%s)", installer.SwitchName(currentManifest.RocqVersion, currentManifest.PlatformRelease))
 			options := append(existingSwitches, newSwitchLabel)
 			radio := widget.NewRadioGroup(options, nil)
 			radio.SetSelected(existingSwitches[0])
@@ -180,23 +222,24 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 			closeBtn.OnTapped = func() {
 				d.Hide()
 				installBtn.Enable()
+				releaseSelect.Enable()
 			}
 			confirmBtn.OnTapped = func() {
 				d.Hide()
 				selected := radio.Selected
 				if selected == newSwitchLabel {
 					logP.append("Starting fresh installation...")
-					go runInstallWithOptions(w, m, templates, statusLabel, progressBar, stepLabel, installBtn, logP, false)
+					go runInstallWithOptions(w, currentManifest, templates, statusLabel, progressBar, stepLabel, installBtn, logP, false)
 				} else {
 					logP.append(fmt.Sprintf("Reusing switch %s...", selected))
-					go runInstallWithOptions(w, m, templates, statusLabel, progressBar, stepLabel, installBtn, logP, true)
+					go runInstallWithOptions(w, currentManifest, templates, statusLabel, progressBar, stepLabel, installBtn, logP, true)
 				}
 			}
 
 			d.Show()
 		} else {
 			logP.append("Starting installation...")
-			go runInstallWithOptions(w, m, templates, statusLabel, progressBar, stepLabel, installBtn, logP, false)
+			go runInstallWithOptions(w, currentManifest, templates, statusLabel, progressBar, stepLabel, installBtn, logP, false)
 		}
 	})
 	installBtn.Importance = widget.HighImportance
@@ -246,6 +289,7 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 			container.NewVBox(
 				header,
 				headerSep,
+				releaseRow,
 				progressSection,
 			),
 			bottomBar,
@@ -336,8 +380,19 @@ func runInstallWithOptions(w fyne.Window, m *manifest.Manifest, templates fs.FS,
 
 	successContent := container.NewVBox(successMsg, container.NewHBox(layout.NewSpacer(), okBtn))
 	successDialog := dialog.NewCustomWithoutButtons("Success", successContent, w)
+	successDialog.Resize(fyne.NewSize(460, 250))
 	okBtn.OnTapped = func() { successDialog.Hide() }
 	successDialog.Show()
+}
+
+func versionDisplayName(version string) string {
+	parts := strings.SplitN(version, ".", 2)
+	if len(parts) > 0 {
+		if major, err := strconv.Atoi(parts[0]); err == nil && major < 9 {
+			return fmt.Sprintf("Coq %s", version)
+		}
+	}
+	return fmt.Sprintf("Rocq %s", version)
 }
 
 func showVSCodeDialog(w fyne.Window) {
@@ -358,6 +413,7 @@ func showVSCodeDialog(w fyne.Window) {
 	content := container.NewVBox(msg, buttons)
 
 	d := dialog.NewCustomWithoutButtons("VSCode Not Found", content, w)
+	d.Resize(fyne.NewSize(460, 250))
 
 	downloadBtn.OnTapped = func() {
 		u, _ := url.Parse(vscodeDownloadURL)

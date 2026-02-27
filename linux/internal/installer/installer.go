@@ -169,17 +169,22 @@ func Run(cfg *Config) (*Result, error) {
 	result.VSCodeFound = true
 
 	cfg.Logger.Log("VSCode CLI: %s", codeBin)
-	if err := vscode.InstallExtension(codeBin); err != nil {
+	extensionID := vscode.ExtensionIDForVersion(cfg.Manifest.RocqVersion)
+	if err := vscode.InstallExtension(codeBin, extensionID); err != nil {
 		cfg.Logger.Log("WARNING: extension install failed: %v", err)
 	}
 
-	// Write VSCode settings with vsrocqtop path from the switch
-	vsrocqtopPath := findVsrocqtop(switchName)
-	if vsrocqtopPath != "" {
-		if err := workspace.WriteVSCodeSettings(workspaceDir, vsrocqtopPath, cfg.Templates); err != nil {
+	// Write VSCode settings with language server path from the switch
+	topPath := findLanguageServerTop(switchName, cfg.Manifest.RocqVersion)
+	if topPath != "" {
+		settingsKey := "vsrocq.path"
+		if vscode.IsCoq(cfg.Manifest.RocqVersion) {
+			settingsKey = "vscoq.path"
+		}
+		if err := workspace.WriteVSCodeSettings(workspaceDir, settingsKey, topPath); err != nil {
 			return nil, fmt.Errorf("vscode config: %w", err)
 		}
-		cfg.Logger.Log("VSCode settings written with vsrocqtop=%s", vsrocqtopPath)
+		cfg.Logger.Log("VSCode settings written with %s=%s", settingsKey, topPath)
 	}
 
 	cfg.Logger.Log("Opening VSCode with workspace %s", workspaceDir)
@@ -347,16 +352,22 @@ func installPackages(switchName string, packages []manifest.OpamPackage, logger 
 	return nil
 }
 
-// findVsrocqtop locates the vsrocqtop binary in the opam switch.
-func findVsrocqtop(switchName string) string {
+// findLanguageServerTop locates the vsrocqtop or vscoqtop binary in the opam switch.
+func findLanguageServerTop(switchName, rocqVersion string) string {
 	out, err := exec.Command("opam", "var", "--switch="+switchName, "bin").Output()
 	if err != nil {
 		return ""
 	}
 	binDir := strings.TrimSpace(string(out))
-	vsrocqtopPath := filepath.Join(binDir, "vsrocqtop")
-	if _, err := os.Stat(vsrocqtopPath); err == nil {
-		return vsrocqtopPath
+
+	binName := "vsrocqtop"
+	if vscode.IsCoq(rocqVersion) {
+		binName = "vscoqtop"
+	}
+
+	topPath := filepath.Join(binDir, binName)
+	if _, err := os.Stat(topPath); err == nil {
+		return topPath
 	}
 	return ""
 }

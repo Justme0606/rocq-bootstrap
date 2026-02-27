@@ -17,7 +17,6 @@ cp -f ../manifest/latest.json embedded/manifest/latest.json
 cp -f ../templates/test.v embedded/templates/test.v
 cp -f ../templates/main.v embedded/templates/main.v
 cp -f ../templates/_RocqProject embedded/templates/_RocqProject
-cp -f ../templates/vscode-settings.json embedded/templates/vscode-settings.json
 
 echo "==> Building rocq-bootstrap (macOS arm64)..."
 CGO_ENABLED=1 \

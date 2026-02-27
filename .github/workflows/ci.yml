@@ -36,8 +36,6 @@ jobs:
           test -f templates/test.v
           test -f templates/main.v
           test -f templates/_RocqProject
-          test -f templates/vscode-settings.json
-          grep -q "__VSROCQTOP__" templates/vscode-settings.json
           echo "All templates OK"
 
   # ──────────────────────────────────────────────
@@ -132,7 +130,6 @@ jobs:
           test -f embedded/templates/test.v
           test -f embedded/templates/main.v
           test -f embedded/templates/_RocqProject
-          test -f embedded/templates/vscode-settings.json
 
       - name: Smoke test — launch headless
         working-directory: linux
@@ -200,7 +197,6 @@ jobs:
           test -f embedded/templates/test.v
           test -f embedded/templates/main.v
           test -f embedded/templates/_RocqProject
-          test -f embedded/templates/vscode-settings.json
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -227,7 +223,6 @@ jobs:
           cp -f ../templates/test.v embedded/templates/test.v
           cp -f ../templates/main.v embedded/templates/main.v
           cp -f ../templates/_RocqProject embedded/templates/_RocqProject
-          cp -f ../templates/vscode-settings.json embedded/templates/vscode-settings.json
 
       - name: Build natively
         shell: bash
@@ -314,7 +309,6 @@ jobs:
           test -f embedded/templates/test.v
           test -f embedded/templates/main.v
           test -f embedded/templates/_RocqProject
-          test -f embedded/templates/vscode-settings.json
 
       - name: Smoke test — mount DMG and verify contents
         working-directory: macos
