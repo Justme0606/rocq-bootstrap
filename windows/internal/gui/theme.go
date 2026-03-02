@@ -9,9 +9,10 @@ import (
 
 // Rocq brand colors extracted from the logo.
 var (
-	rocqNavy      = color.NRGBA{R: 0x1a, G: 0x0a, B: 0x6e, A: 0xff} // deep navy blue
 	rocqLightBg   = color.NRGBA{R: 0xf7, G: 0xf0, B: 0xeb, A: 0xff} // warm light background
-	rocqAccent    = color.NRGBA{R: 0x3d, G: 0x2b, B: 0x9e, A: 0xff} // lighter purple for hover
+	rocqAccent    = color.NRGBA{R: 0xf0, G: 0xa0, B: 0x30, A: 0xff} // warm golden for focus
+	rocqHover     = color.NRGBA{R: 0xed, G: 0xe5, B: 0xdf, A: 0xff} // subtle warm hover tint
+	rocqSelection = color.NRGBA{R: 0xe0, G: 0xd6, B: 0xd0, A: 0xff} // soft selection highlight
 	rocqSeparator = color.NRGBA{R: 0xe0, G: 0xd6, B: 0xcf, A: 0xff} // subtle separator
 	rocqInputBg   = color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff} // white input fields
 	rocqDarkText  = color.NRGBA{R: 0x2a, G: 0x2a, B: 0x2a, A: 0xff} // near-black text
@@ -33,11 +34,15 @@ func newRocqTheme() fyne.Theme {
 func (t *rocqTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
 	switch name {
 	case theme.ColorNamePrimary:
-		return rocqNavy
+		return rocqOrange
 	case theme.ColorNameButton:
-		return rocqNavy
+		return rocqOrange
 	case theme.ColorNameHover:
+		return rocqHover
+	case theme.ColorNameFocus:
 		return rocqAccent
+	case theme.ColorNameSelection:
+		return rocqSelection
 	case theme.ColorNameBackground:
 		return rocqLightBg
 	case theme.ColorNameForeground:
@@ -69,13 +74,13 @@ func (t *rocqTheme) Size(name fyne.ThemeSizeName) float32 {
 	case theme.SizeNamePadding:
 		return 6
 	case theme.SizeNameInnerPadding:
-		return 10
+		return 12
 	case theme.SizeNameText:
-		return 14
+		return 13
 	case theme.SizeNameSubHeadingText:
-		return 16
+		return 14
 	case theme.SizeNameHeadingText:
-		return 20
+		return 18
 	}
 	return t.base.Size(name)
 }

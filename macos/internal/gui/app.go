@@ -57,6 +57,14 @@ func (lp *logPanel) append(msg string) {
 	lp.display.ParseMarkdown("```\n" + strings.Join(lp.lines, "\n") + "\n```")
 }
 
+func (lp *logPanel) clear() {
+	lp.mu.Lock()
+	defer lp.mu.Unlock()
+
+	lp.lines = nil
+	lp.display.ParseMarkdown("")
+}
+
 // Run creates and runs the GUI application.
 func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 	a := app.New()
@@ -85,11 +93,11 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 	}
 
 	titleRocq := canvas.NewText("Rocq", rocqOrange)
-	titleRocq.TextSize = 22
+	titleRocq.TextSize = 20
 	titleRocq.TextStyle = fyne.TextStyle{Bold: true}
 
-	titleRest := canvas.NewText(" Platform Installer", rocqNavy)
-	titleRest.TextSize = 22
+	titleRest := canvas.NewText(" Platform Installer", rocqDarkText)
+	titleRest.TextSize = 20
 	titleRest.TextStyle = fyne.TextStyle{Bold: true}
 
 	titleRow := container.NewHBox(titleRocq, titleRest)
@@ -104,6 +112,17 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 	}
 
 	headerSep := widget.NewSeparator()
+
+	// --- Log panel (defined early so release callbacks can update it) ---
+	logP := newLogPanel()
+
+	resetLogForManifest := func(mf *manifest.Manifest) {
+		logP.clear()
+		logP.append(fmt.Sprintf("Rocq version: %s", mf.RocqVersion))
+		logP.append(fmt.Sprintf("Platform release: %s", mf.PlatformRelease))
+		logP.append("Click 'Install' to begin.")
+	}
+	resetLogForManifest(m)
 
 	// --- Release selector ---
 	currentManifest := m
@@ -132,6 +151,7 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 		}
 		currentManifest = newManifest
 		rocqVersionLabel.SetText(versionDisplayName(currentManifest.RocqVersion))
+		resetLogForManifest(currentManifest)
 	}()
 
 	releaseSelect.OnChanged = func(selected string) {
@@ -147,6 +167,7 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 			}
 			currentManifest = newManifest
 			rocqVersionLabel.SetText(versionDisplayName(currentManifest.RocqVersion))
+			resetLogForManifest(currentManifest)
 			releaseSelect.Enable()
 		}()
 	}
@@ -163,19 +184,19 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 	progressBar.Min = 0
 	progressBar.Max = 1.0
 
+	infiniteBar := widget.NewProgressBarInfinite()
+	infiniteBar.Hide()
+
+	progressStack := container.NewStack(progressBar, infiniteBar)
+
 	statusRow := container.NewBorder(nil, nil, nil, stepLabel, statusLabel)
 
 	progressSection := container.NewVBox(
 		statusRow,
-		progressBar,
+		progressStack,
 	)
 
-	// --- Log panel ---
-	logP := newLogPanel()
-	logP.append(fmt.Sprintf("Rocq version: %s", m.RocqVersion))
-	logP.append(fmt.Sprintf("Platform release: %s", m.PlatformRelease))
-	logP.append("Click 'Install' to begin.")
-
+	// --- Log panel layout ---
 	logScroll := container.NewScroll(logP.display)
 	logScroll.SetMinSize(fyne.NewSize(580, 220))
 
@@ -249,12 +270,19 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 	doctorBtn = widget.NewButtonWithIcon("Doctor", theme.InfoIcon(), func() {
 		installBtn.Disable()
 		doctorBtn.Disable()
+		statusLabel.SetText("Running diagnostics...")
+		progressBar.Hide()
+		infiniteBar.Show()
 
 		go func() {
 			var lines []string
 			doctor.Run(func(msg string) {
 				lines = append(lines, msg)
 			})
+
+			infiniteBar.Hide()
+			progressBar.Show()
+			statusLabel.SetText("Ready to install")
 
 			richText := widget.NewRichText()
 			richText.Wrapping = fyne.TextWrapWord
@@ -311,6 +339,8 @@ func runInstallWithOptions(w fyne.Window, m *manifest.Manifest, templates fs.FS,
 	stepLabel *widget.Label, installBtn *widget.Button, logP *logPanel,
 	existingApp string, skipInstall bool) {
 
+	startTime := time.Now()
+
 	logger, err := installer.NewLogger()
 	if err != nil {
 		logP.append(fmt.Sprintf("WARNING: could not create log file: %v", err))
@@ -350,9 +380,11 @@ func runInstallWithOptions(w fyne.Window, m *manifest.Manifest, templates fs.FS,
 
 	progressBar.SetValue(1.0)
 
+	elapsed := formatDuration(time.Since(startTime))
+
 	if !result.VSCodeFound {
-		statusLabel.SetText("Rocq Platform installed — VSCode not found")
-		logP.append("Rocq Platform installed successfully.")
+		statusLabel.SetText(fmt.Sprintf("Rocq Platform installed in %s — VSCode not found", elapsed))
+		logP.append(fmt.Sprintf("Rocq Platform installed successfully in %s.", elapsed))
 		logP.append("VSCode was not found. Install VSCode then re-run this installer to configure the workspace.")
 		logP.append(fmt.Sprintf("Installed app: %s", result.InstalledApp))
 
@@ -360,13 +392,13 @@ func runInstallWithOptions(w fyne.Window, m *manifest.Manifest, templates fs.FS,
 		return
 	}
 
-	statusLabel.SetText("Installation complete!")
-	logP.append("Installation complete!")
+	statusLabel.SetText(fmt.Sprintf("Installation complete! (%s)", elapsed))
+	logP.append(fmt.Sprintf("Installation complete! (%s)", elapsed))
 	logP.append(fmt.Sprintf("Installed app: %s", result.InstalledApp))
 	logP.append(fmt.Sprintf("Workspace: ~/rocq-workspace"))
 
 	successMsg := widget.NewLabel(
-		"Rocq Platform has been installed successfully.\n\n" +
+		fmt.Sprintf("Rocq Platform has been installed successfully in %s.\n\n", elapsed) +
 			fmt.Sprintf("Installed app: %s\n", result.InstalledApp) +
 			"Workspace: ~/rocq-workspace")
 	successMsg.Wrapping = fyne.TextWrapWord
@@ -389,6 +421,16 @@ func versionDisplayName(version string) string {
 		}
 	}
 	return fmt.Sprintf("Rocq %s", version)
+}
+
+func formatDuration(d time.Duration) string {
+	d = d.Round(time.Second)
+	m := int(d.Minutes())
+	s := int(d.Seconds()) % 60
+	if m > 0 {
+		return fmt.Sprintf("%dm %ds", m, s)
+	}
+	return fmt.Sprintf("%ds", s)
 }
 
 func showVSCodeDialog(w fyne.Window) {
