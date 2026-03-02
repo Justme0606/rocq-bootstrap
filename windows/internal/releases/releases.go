@@ -73,6 +73,31 @@ func inferRocqVersion(body string) string {
 	return ""
 }
 
+// FetchRocqVersion fetches the Rocq version for a given release tag from the GitHub release body.
+func FetchRocqVersion(tag string) (string, error) {
+	resp, err := http.Get(releaseURL + tag)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	var rel ghReleaseDetail
+	if err := json.Unmarshal(body, &rel); err != nil {
+		return "", err
+	}
+	ver := inferRocqVersion(rel.Body)
+	if ver == "" {
+		return "", fmt.Errorf("version not found in release body")
+	}
+	return ver, nil
+}
+
 func findSignedExe(assets []ghAsset) (string, string) {
 	for _, a := range assets {
 		if strings.HasPrefix(a.Name, "signed_") && strings.HasSuffix(a.Name, ".exe") {
