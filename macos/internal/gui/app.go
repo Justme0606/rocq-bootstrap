@@ -126,47 +126,102 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 
 	// --- Release selector ---
 	currentManifest := m
+	labelToTag := map[string]string{}
 
-	releaseSelect := widget.NewSelect([]string{m.PlatformRelease}, func(selected string) {})
-	releaseSelect.Selected = m.PlatformRelease
+	initialLabel := m.PlatformRelease + " \u2014 " + versionDisplayName(m.RocqVersion)
+	labelToTag[initialLabel] = m.PlatformRelease
+	labelToTag[m.PlatformRelease] = m.PlatformRelease
+
+	releaseSelect := widget.NewSelect([]string{initialLabel}, func(selected string) {})
+	releaseSelect.Selected = initialLabel
 
 	releaseLabel := widget.NewLabelWithStyle("Release:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	rocqVersionLabel := widget.NewLabel(versionDisplayName(m.RocqVersion))
-	releaseRow := container.NewBorder(nil, nil, releaseLabel, rocqVersionLabel, releaseSelect)
+	releaseRow := container.NewBorder(nil, nil, releaseLabel, nil, releaseSelect)
 
-	// Fetch available releases in background and update Rocq version for current tag
+	resolveTag := func(label string) string {
+		if tag, ok := labelToTag[label]; ok {
+			return tag
+		}
+		return label
+	}
+
+	// Fetch available releases in background with versions
 	go func() {
 		tags, err := releases.FetchReleases()
 		if err != nil {
 			return
 		}
-		if len(tags) > 0 {
-			releaseSelect.Options = tags
-			releaseSelect.Refresh()
+
+		type tagVersion struct {
+			tag     string
+			version string
 		}
-		// Fetch actual Rocq version for the initially selected release
-		newManifest, err := releases.FetchManifestForTag(currentManifest.PlatformRelease)
+		results := make(chan tagVersion, len(tags))
+		for _, tag := range tags {
+			go func(t string) {
+				ver, err := releases.FetchRocqVersion(t)
+				if err != nil {
+					results <- tagVersion{tag: t}
+					return
+				}
+				results <- tagVersion{tag: t, version: ver}
+			}(tag)
+		}
+
+		versionMap := map[string]string{}
+		for range tags {
+			r := <-results
+			if r.version != "" {
+				versionMap[r.tag] = r.version
+			}
+		}
+
+		var options []string
+		for _, tag := range tags {
+			label := tag
+			if ver, ok := versionMap[tag]; ok {
+				label = tag + " \u2014 " + versionDisplayName(ver)
+			}
+			labelToTag[label] = tag
+			options = append(options, label)
+		}
+
+		currentTag := currentManifest.PlatformRelease
+		var currentLabel string
+		for _, opt := range options {
+			if resolveTag(opt) == currentTag {
+				currentLabel = opt
+				break
+			}
+		}
+
+		releaseSelect.Options = options
+		if currentLabel != "" {
+			releaseSelect.Selected = currentLabel
+		}
+		releaseSelect.Refresh()
+
+		newManifest, err := releases.FetchManifestForTag(currentTag)
 		if err != nil {
 			return
 		}
 		currentManifest = newManifest
-		rocqVersionLabel.SetText(versionDisplayName(currentManifest.RocqVersion))
 		resetLogForManifest(currentManifest)
 	}()
 
 	releaseSelect.OnChanged = func(selected string) {
-		if selected == currentManifest.PlatformRelease {
+		tag := resolveTag(selected)
+		if tag == currentManifest.PlatformRelease {
 			return
 		}
 		releaseSelect.Disable()
 		go func() {
-			newManifest, err := releases.FetchManifestForTag(selected)
+			newManifest, err := releases.FetchManifestForTag(tag)
 			if err != nil {
 				releaseSelect.Enable()
 				return
 			}
 			currentManifest = newManifest
-			rocqVersionLabel.SetText(versionDisplayName(currentManifest.RocqVersion))
 			resetLogForManifest(currentManifest)
 			releaseSelect.Enable()
 		}()

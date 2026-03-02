@@ -70,6 +70,32 @@ func FetchReleases() ([]string, error) {
 	return tags, nil
 }
 
+var versionRe = regexp.MustCompile(`\*\*(?:Rocq|Coq)\s+(\d+\.\d+\.\d+)\*\*`)
+
+// FetchRocqVersion fetches the Rocq version for a given release tag from the GitHub release body.
+func FetchRocqVersion(tag string) (string, error) {
+	resp, err := http.Get(releaseURL + tag)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	var rel ghReleaseDetail
+	if err := json.Unmarshal(body, &rel); err != nil {
+		return "", err
+	}
+	if m := versionRe.FindStringSubmatch(rel.Body); m != nil {
+		return m[1], nil
+	}
+	return "", fmt.Errorf("version not found in release body")
+}
+
 // packagePickInfo holds parsed data from a package-pick shell script.
 type packagePickInfo struct {
 	coqTag        string // COQ_PLATFORM_COQ_TAG (e.g. "9.0.1" or "8.20.1")
