@@ -96,7 +96,7 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 	titleRocq.TextSize = 20
 	titleRocq.TextStyle = fyne.TextStyle{Bold: true}
 
-	titleRest := canvas.NewText(" Platform Installer", rocqDarkText)
+	titleRest := canvas.NewText(" Platform Installer", rocqBlue)
 	titleRest.TextSize = 20
 	titleRest.TextStyle = fyne.TextStyle{Bold: true}
 

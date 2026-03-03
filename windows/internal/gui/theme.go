@@ -7,19 +7,21 @@ import (
 	"fyne.io/fyne/v2/theme"
 )
 
-// Rocq brand colors extracted from the logo.
+// Rocq brand colors from https://rocq-prover.org/ logo.
+// Logo uses #260085 (deep blue) and #ff540a (bright orange).
 var (
-	rocqLightBg   = color.NRGBA{R: 0xf7, G: 0xf0, B: 0xeb, A: 0xff} // warm light background
-	rocqAccent    = color.NRGBA{R: 0xf0, G: 0xa0, B: 0x30, A: 0xff} // warm golden for focus
-	rocqHover     = color.NRGBA{R: 0xed, G: 0xe5, B: 0xdf, A: 0xff} // subtle warm hover tint
-	rocqSelection = color.NRGBA{R: 0xe0, G: 0xd6, B: 0xd0, A: 0xff} // soft selection highlight
-	rocqSeparator = color.NRGBA{R: 0xe0, G: 0xd6, B: 0xcf, A: 0xff} // subtle separator
+	rocqLightBg   = color.NRGBA{R: 0xf0, G: 0xef, B: 0xf5, A: 0xff} // light background with blue tint
+	rocqAccent    = color.NRGBA{R: 0xff, G: 0x54, B: 0x0a, A: 0xff} // brand orange for focus (#ff540a)
+	rocqHover     = color.NRGBA{R: 0xe8, G: 0xe6, B: 0xf0, A: 0xff} // subtle blue-tinted hover
+	rocqSelection = color.NRGBA{R: 0xd8, G: 0xd4, B: 0xe8, A: 0xff} // soft blue-tinted selection
+	rocqSeparator = color.NRGBA{R: 0xd0, G: 0xce, B: 0xda, A: 0xff} // subtle separator
 	rocqInputBg   = color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff} // white input fields
-	rocqDarkText  = color.NRGBA{R: 0x2a, G: 0x2a, B: 0x2a, A: 0xff} // near-black text
+	rocqDarkText  = color.NRGBA{R: 0x1a, G: 0x0a, B: 0x3a, A: 0xff} // dark text with blue undertone
 	rocqMutedText = color.NRGBA{R: 0x6b, G: 0x6b, B: 0x6b, A: 0xff} // muted text
 	rocqSuccess   = color.NRGBA{R: 0x2e, G: 0x7d, B: 0x32, A: 0xff} // green for success
 	rocqError     = color.NRGBA{R: 0xc6, G: 0x28, B: 0x28, A: 0xff} // red for errors
-	rocqOrange    = color.NRGBA{R: 0xe8, G: 0x8a, B: 0x1a, A: 0xff} // warm orange for "Rocq" branding
+	rocqOrange    = color.NRGBA{R: 0xff, G: 0x54, B: 0x0a, A: 0xff} // brand orange (#ff540a)
+	rocqBlue      = color.NRGBA{R: 0x26, G: 0x00, B: 0x85, A: 0xff} // brand deep blue (#260085)
 )
 
 // rocqTheme implements fyne.Theme with Rocq brand colors.
