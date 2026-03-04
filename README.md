@@ -53,8 +53,8 @@ configuration.
 On Linux systems, Rocq is installed using `opam`. Two installation
 methods are available:
 
-**GUI installer** (`rocq-bootstrap`): A standalone graphical installer
-(Fyne) that handles the entire setup:
+**GUI installer** (`rocq-bootstrap-linux`): A standalone graphical
+installer (Fyne) that handles the entire setup:
 
 - Checks for opam and initialises it if needed
 - Creates a dedicated opam switch following Rocq Platform naming
@@ -102,14 +102,24 @@ All core packages are strictly pinned to the requested version.
 
 ### macOS
 
-On macOS systems, the installer:
+On macOS systems, two installation methods are available:
 
-- Resolves the appropriate signed Rocq Platform release asset
-- Downloads the official signed installer
-- Installs the application bundle
-- Locates the language server binary (`vsrocqtop` for Rocq 9+,
+**GUI installer** (`Rocq Bootstrap.app`): A standalone graphical
+installer distributed as a DMG disk image
+(`rocq-bootstrap-macos-arm64.dmg`). It handles the entire setup with
+a graphical interface.
+
+**Shell installer** (`install.sh`): The script-based installer for
+headless or automated setups.
+
+Both methods:
+
+- Resolve the appropriate signed Rocq Platform release asset
+- Download the official signed installer
+- Install the application bundle
+- Locate the language server binary (`vsrocqtop` for Rocq 9+,
   `vscoqtop` for Coq < 9)
-- Configures a ready-to-use workspace
+- Configure a ready-to-use workspace
 
 Only signed release artifacts are accepted.
 
@@ -117,8 +127,8 @@ Only signed release artifacts are accepted.
 
 ### Windows
 
-On Windows, a standalone GUI installer (`rocq-bootstrap.exe`) handles
-the entire setup:
+On Windows, a standalone GUI installer (`rocq-bootstrap-windows.exe`)
+handles the entire setup:
 
 - Downloads the official signed Rocq Platform InnoSetup installer
 - Verifies SHA256 checksum
@@ -177,8 +187,8 @@ For the shell installer (`install.sh`):
 - `curl`
 - VSCode (optional but recommended)
 
-For the GUI installer (`rocq-bootstrap`): no prerequisites for end
-users — just run the binary. opam will be detected automatically.
+For the GUI installer (`rocq-bootstrap-linux`): no prerequisites for
+end users — just run the binary. opam will be detected automatically.
 
 For building the GUI from source:
 
@@ -188,13 +198,18 @@ For building the GUI from source:
 
 ### macOS
 
+For the shell installer (`install.sh`):
+
 - `curl`
 - `jq`
 - VSCode (optional but recommended)
 
+For the GUI installer (`Rocq Bootstrap.app`): no prerequisites — open
+the DMG and drag the app to Applications.
+
 ### Windows
 
-No prerequisites for end users — just run `rocq-bootstrap.exe`.
+No prerequisites for end users — just run `rocq-bootstrap-windows.exe`.
 
 For building from source (cross-compilation from Linux):
 
@@ -234,18 +249,18 @@ environment.
 
 ### Linux (GUI)
 
-Download `rocq-bootstrap-linux-x86_64` from the
+Download `rocq-bootstrap-linux` from the
 [Releases](https://github.com/justme0606/rocq-bootstrap/releases)
 page, then:
 
 ```bash
-chmod +x rocq-bootstrap-linux-x86_64
+chmod +x rocq-bootstrap-linux
 
 # Run directly (no installation needed)
-./rocq-bootstrap-linux-x86_64
+./rocq-bootstrap-linux
 
 # Or install as a desktop application (icon in app menu)
-./rocq-bootstrap-linux-x86_64 --install
+./rocq-bootstrap-linux --install
 
 # Uninstall
 rocq-bootstrap --uninstall
@@ -267,11 +282,27 @@ make clean     # remove build artifacts
 
 ---
 
+### macOS (GUI)
+
+Download `rocq-bootstrap-macos-arm64.dmg` from the
+[Releases](https://github.com/justme0606/rocq-bootstrap/releases)
+page, open the DMG and drag **Rocq Bootstrap** to Applications.
+
+To build from source:
+
+```bash
+cd macos
+make all       # production build (creates .app bundle and .dmg)
+make clean     # remove build artifacts
+```
+
+---
+
 ### Windows
 
-Simply run the GUI installer:
-
-    rocq-bootstrap.exe
+Download `rocq-bootstrap-windows.exe` from the
+[Releases](https://github.com/justme0606/rocq-bootstrap/releases)
+page, then simply run it.
 
 To build from source (cross-compile from Linux):
 
@@ -304,10 +335,13 @@ This mode:
 The installer generates:
 
     <workspace>/
-     ├── test.v
-     ├── _RocqProject
-     └── .vscode/
-         └── settings.json
+     ├── main.v                  # Sample proof file
+     ├── test.v                  # Validation test file
+     ├── _RocqProject            # Rocq project configuration
+     ├── .vscode/
+     │   └── settings.json       # vsrocqtop path configuration
+     ├── activate.sh             # Shell activation script (Linux only)
+     └── activate-shell.sh       # Spawns activated shell (Linux only)
 
 The workspace is configured to:
 
