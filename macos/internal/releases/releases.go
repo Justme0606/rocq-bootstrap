@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/justme0606/rocq-bootstrap/macos/internal/manifest"
@@ -61,7 +63,33 @@ func FetchReleases() ([]string, error) {
 		}
 	}
 
+	sort.Slice(tags, func(i, j int) bool {
+		return compareVersionDesc(tags[i], tags[j])
+	})
+
 	return tags, nil
+}
+
+// compareVersionDesc returns true if a should come before b (newest first).
+// Tags use the format YYYY.MM.patch (e.g. "2025.08.1").
+func compareVersionDesc(a, b string) bool {
+	ap := parseVersion(a)
+	bp := parseVersion(b)
+	for k := 0; k < len(ap) && k < len(bp); k++ {
+		if ap[k] != bp[k] {
+			return ap[k] > bp[k]
+		}
+	}
+	return len(ap) > len(bp)
+}
+
+func parseVersion(tag string) []int {
+	parts := strings.Split(tag, ".")
+	nums := make([]int, len(parts))
+	for i, p := range parts {
+		nums[i], _ = strconv.Atoi(p)
+	}
+	return nums
 }
 
 var versionRe = regexp.MustCompile(`\*\*(?:Rocq|Coq)\s+(\d+\.\d+\.\d+)\*\*`)
