@@ -187,24 +187,16 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 			options = append(options, label)
 		}
 
-		// Update current selection label
-		currentTag := currentManifest.PlatformRelease
-		var currentLabel string
-		for _, opt := range options {
-			if resolveTag(opt) == currentTag {
-				currentLabel = opt
-				break
-			}
-		}
-
 		releaseSelect.Options = options
-		if currentLabel != "" {
-			releaseSelect.Selected = currentLabel
+		// Select the most recent release (first in the sorted list)
+		if len(options) > 0 {
+			releaseSelect.Selected = options[0]
 		}
 		releaseSelect.Refresh()
 
-		// Fetch full manifest for current release
-		newManifest, err := releases.FetchManifestForTag(currentTag)
+		// Fetch full manifest for the most recent release
+		latestTag := resolveTag(releaseSelect.Selected)
+		newManifest, err := releases.FetchManifestForTag(latestTag)
 		if err != nil {
 			return
 		}
@@ -367,7 +359,14 @@ func Run(m *manifest.Manifest, templates fs.FS, icon []byte, version string) {
 	})
 	doctorBtn.Importance = widget.HighImportance
 
-	bottomBar := container.NewPadded(container.NewCenter(container.NewHBox(doctorBtn, installBtn)))
+	versionLabel := widget.NewLabelWithStyle("v"+version, fyne.TextAlignTrailing, fyne.TextStyle{})
+	versionLabel.Importance = widget.LowImportance
+
+	bottomBar := container.NewPadded(
+		container.NewBorder(nil, nil, nil, versionLabel,
+			container.NewCenter(container.NewHBox(doctorBtn, installBtn)),
+		),
+	)
 
 	// --- Main layout ---
 	content := container.NewPadded(
