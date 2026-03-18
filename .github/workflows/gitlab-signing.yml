@@ -1,0 +1,34 @@
+name: Trigger GitLab signing
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  trigger-gitlab:
+    name: Trigger GitLab internal signing pipeline
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Show release context
+        run: |
+          echo "Tag: ${{ github.event.release.tag_name }}"
+          echo "Release URL: ${{ github.event.release.html_url }}"
+          echo "Repo: ${{ github.repository }}"
+
+      - name: Trigger GitLab pipeline
+        env:
+          GITLAB_URL: ${{ secrets.GITLAB_URL }}
+          GITLAB_PROJECT_ID: ${{ secrets.GITLAB_PROJECT_ID }}
+          GITLAB_TRIGGER_TOKEN: ${{ secrets.GITLAB_TRIGGER_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_RELEASE_URL: ${{ github.event.release.html_url }}
+        run: |
+          curl --fail --request POST \
+            --form token="${GITLAB_TRIGGER_TOKEN}" \
+            --form ref="main" \
+            --form "variables[RELEASE_TAG]=${RELEASE_TAG}" \
+            --form "variables[GH_REPOSITORY]=${GH_REPOSITORY}" \
+            --form "variables[GH_RELEASE_URL]=${GH_RELEASE_URL}" \
+            "${GITLAB_URL}/api/v4/projects/${GITLAB_PROJECT_ID}/trigger/pipeline"
