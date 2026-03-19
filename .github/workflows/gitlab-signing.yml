@@ -1,8 +1,16 @@
 name: Trigger GitLab signing
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "GitHub release tag to sign"
+        required: true
+        type: string
+      gh_release_url:
+        description: "GitHub release URL"
+        required: true
+        type: string
 
 jobs:
   trigger-gitlab:
@@ -12,8 +20,8 @@ jobs:
     steps:
       - name: Show release context
         run: |
-          echo "Tag: ${{ github.event.release.tag_name }}"
-          echo "Release URL: ${{ github.event.release.html_url }}"
+          echo "Tag: ${{ inputs.release_tag }}"
+          echo "Release URL: ${{ inputs.gh_release_url }}"
           echo "Repo: ${{ github.repository }}"
 
       - name: Trigger GitLab pipeline
@@ -21,9 +29,9 @@ jobs:
           GITLAB_URL: ${{ secrets.GITLAB_URL }}
           GITLAB_PROJECT_ID: ${{ secrets.GITLAB_PROJECT_ID }}
           GITLAB_TRIGGER_TOKEN: ${{ secrets.GITLAB_TRIGGER_TOKEN }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
           GH_REPOSITORY: ${{ github.repository }}
-          GH_RELEASE_URL: ${{ github.event.release.html_url }}
+          GH_RELEASE_URL: ${{ inputs.gh_release_url }}
         run: |
           curl --fail --request POST \
             --form token="${GITLAB_TRIGGER_TOKEN}" \
