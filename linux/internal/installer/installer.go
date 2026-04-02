@@ -65,7 +65,6 @@ func FindExistingInstallations() []string {
 	for _, line := range strings.Split(string(out), "\n") {
 		name := strings.TrimSpace(line)
 		if strings.HasPrefix(name, "CP.") || strings.HasPrefix(name, "coq-") {
-			debugLog("[detect] => Found existing switch: %s", name)
 			switches = append(switches, name)
 		}
 	}

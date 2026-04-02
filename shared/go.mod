@@ -1,14 +1,8 @@
-module github.com/justme0606/rocq-bootstrap/windows
+module github.com/justme0606/rocq-bootstrap/shared
 
 go 1.22
 
-require (
-	fyne.io/fyne/v2 v2.5.4
-	github.com/justme0606/rocq-bootstrap/shared v0.0.0
-	golang.org/x/sys v0.20.0
-)
-
-replace github.com/justme0606/rocq-bootstrap/shared => ../shared
+require fyne.io/fyne/v2 v2.5.4
 
 require (
 	fyne.io/systray v1.11.0 // indirect
@@ -22,7 +16,7 @@ require (
 	github.com/go-gl/gl v0.0.0-20211210172815-726fda9656d6 // indirect
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20240506104042-037f3cc74f2a // indirect
 	github.com/go-text/render v0.2.0 // indirect
-	github.com/go-text/typesetting v0.2.1 // indirect
+	github.com/go-text/typesetting v0.2.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/jeandeaual/go-locale v0.0.0-20240223122105-ce5225dcaa49 // indirect
@@ -38,6 +32,7 @@ require (
 	golang.org/x/image v0.18.0 // indirect
 	golang.org/x/mobile v0.0.0-20231127183840-76ac6878050a // indirect
 	golang.org/x/net v0.25.0 // indirect
+	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

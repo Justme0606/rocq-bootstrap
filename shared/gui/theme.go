@@ -20,8 +20,11 @@ var (
 	rocqMutedText = color.NRGBA{R: 0x6b, G: 0x6b, B: 0x6b, A: 0xff} // muted text
 	rocqSuccess   = color.NRGBA{R: 0x2e, G: 0x7d, B: 0x32, A: 0xff} // green for success
 	rocqError     = color.NRGBA{R: 0xc6, G: 0x28, B: 0x28, A: 0xff} // red for errors
-	rocqOrange    = color.NRGBA{R: 0xff, G: 0x54, B: 0x0a, A: 0xff} // brand orange (#ff540a)
-	rocqBlue      = color.NRGBA{R: 0x26, G: 0x00, B: 0x85, A: 0xff} // brand deep blue (#260085)
+
+	// RocqOrange is the brand orange (#ff540a), exported for use in GUI components.
+	RocqOrange = color.NRGBA{R: 0xff, G: 0x54, B: 0x0a, A: 0xff}
+	// RocqBlue is the brand deep blue (#260085), exported for use in GUI components.
+	RocqBlue = color.NRGBA{R: 0x26, G: 0x00, B: 0x85, A: 0xff}
 )
 
 // rocqTheme implements fyne.Theme with Rocq brand colors.
@@ -29,16 +32,17 @@ type rocqTheme struct {
 	base fyne.Theme
 }
 
-func newRocqTheme() fyne.Theme {
+// NewRocqTheme creates a new Rocq-branded Fyne theme.
+func NewRocqTheme() fyne.Theme {
 	return &rocqTheme{base: theme.DefaultTheme()}
 }
 
 func (t *rocqTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
 	switch name {
 	case theme.ColorNamePrimary:
-		return rocqOrange
+		return RocqOrange
 	case theme.ColorNameButton:
-		return rocqOrange
+		return RocqOrange
 	case theme.ColorNameHover:
 		return rocqHover
 	case theme.ColorNameFocus:

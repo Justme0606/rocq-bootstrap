@@ -2,9 +2,12 @@ module github.com/justme0606/rocq-bootstrap/linux
 
 go 1.22
 
-require fyne.io/fyne/v2 v2.5.4
+require github.com/justme0606/rocq-bootstrap/shared v0.0.0
+
+replace github.com/justme0606/rocq-bootstrap/shared => ../shared
 
 require (
+	fyne.io/fyne/v2 v2.5.4 // indirect
 	fyne.io/systray v1.11.0 // indirect
 	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
