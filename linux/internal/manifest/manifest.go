@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+
+	sharedmanifest "github.com/justme0606/rocq-bootstrap/shared/manifest"
 )
 
 type OpamPackage struct {
@@ -54,10 +56,5 @@ func Parse(data []byte) (*Manifest, error) {
 
 // Load reads and parses the manifest from an embedded filesystem.
 func Load(fsys fs.FS, path string) (*Manifest, error) {
-	data, err := fs.ReadFile(fsys, path)
-	if err != nil {
-		return nil, fmt.Errorf("read manifest: %w", err)
-	}
-
-	return Parse(data)
+	return sharedmanifest.Load(fsys, path, Parse)
 }

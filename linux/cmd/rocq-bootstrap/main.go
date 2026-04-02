@@ -5,7 +5,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"time"
+
+	"github.com/justme0606/rocq-bootstrap/shared/startup"
 
 	rootfs "github.com/justme0606/rocq-bootstrap/linux"
 	"github.com/justme0606/rocq-bootstrap/linux/internal/gui"
@@ -29,6 +30,13 @@ Keywords=Rocq;Coq;proof;assistant;opam;
 )
 
 func main() {
+	showLog := false
+	for _, arg := range os.Args[1:] {
+		if arg == "--log" {
+			showLog = true
+		}
+	}
+
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "--install":
@@ -44,56 +52,29 @@ func main() {
 			}
 			return
 		case "--help", "-h":
-			fmt.Println("Usage: rocq-bootstrap [--install | --uninstall | --help]")
+			fmt.Println("Usage: rocq-bootstrap [--install | --uninstall | --log | --help]")
 			fmt.Println()
 			fmt.Println("  (no args)     Launch the GUI installer")
 			fmt.Println("  --install     Install as desktop application (~/.local)")
 			fmt.Println("  --uninstall   Remove desktop application")
+			fmt.Println("  --log         Show the log panel in the GUI")
 			fmt.Println("  --help        Show this help")
 			return
 		}
 	}
 
-	// Early log file to capture errors before GUI starts
-	earlyLog := setupEarlyLog()
-	if earlyLog != nil {
-		defer earlyLog.Close()
-		fmt.Fprintf(earlyLog, "[%s] rocq-bootstrap starting\n", time.Now().Format("15:04:05"))
-	}
+	var m *manifest.Manifest
 
-	m, err := manifest.Load(rootfs.EmbeddedManifest, "embedded/manifest/latest.json")
-	if err != nil {
-		msg := fmt.Sprintf("Fatal: %v", err)
-		if earlyLog != nil {
-			fmt.Fprintln(earlyLog, msg)
-		}
-		fmt.Fprintln(os.Stderr, msg)
-		os.Exit(1)
-	}
-
-	if earlyLog != nil {
-		fmt.Fprintf(earlyLog, "[%s] manifest loaded: Rocq %s (platform %s)\n",
-			time.Now().Format("15:04:05"), m.RocqVersion, m.PlatformRelease)
-		fmt.Fprintf(earlyLog, "[%s] launching GUI\n", time.Now().Format("15:04:05"))
-	}
-
-	gui.Run(m, rootfs.EmbeddedTemplates, rootfs.EmbeddedIcon, Version)
-}
-
-func setupEarlyLog() *os.File {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil
-	}
-	logDir := filepath.Join(home, ".rocq-setup", "logs")
-	os.MkdirAll(logDir, 0o755)
-
-	name := fmt.Sprintf("rocq-bootstrap-%s.log", time.Now().Format("20060102-150405"))
-	f, err := os.Create(filepath.Join(logDir, name))
-	if err != nil {
-		return nil
-	}
-	return f
+	startup.Bootstrap(&startup.BootstrapConfig{
+		LoadManifest: func() error {
+			var err error
+			m, err = manifest.Load(rootfs.EmbeddedManifest, "embedded/manifest/latest.json")
+			return err
+		},
+		RunGUI:          func() { gui.Run(m, rootfs.EmbeddedTemplates, rootfs.EmbeddedIcon, Version, showLog) },
+		RocqVersion:     func() string { return m.RocqVersion },
+		PlatformRelease: func() string { return m.PlatformRelease },
+	})
 }
 
 func installDesktop() error {
